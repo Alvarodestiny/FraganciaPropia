@@ -1,0 +1,306 @@
+#!/usr/bin/env python3
+"""Genera catalogo.json para Fragancia Propia a partir del dataset de Fragrantica.
+
+Uso básico:
+    python build_catalog.py fra_cleaned.csv
+Con feed de Notino (precio, enlace y foto) y solo perfumes que estén en el feed:
+    python build_catalog.py fra_cleaned.csv --feed feed_notino.csv --solo-notino
+
+Solo usa la librería estándar de Python. Si no encuentra las columnas, imprime
+las que tiene tu CSV para que ajustes los nombres en COLUMNAS.
+"""
+import argparse, csv, json, re, sys, unicodedata
+
+# Nombres de columna posibles (en minúsculas). Añade los de tu CSV si hace falta.
+COLUMNAS = {
+    "nombre": ["perfume", "name", "title"],
+    "marca": ["brand", "marca"],
+    "genero": ["gender", "genero"],
+    "year": ["year", "año"],
+    "valor": ["rating value", "rating_value", "ratingvalue", "rating"],
+    "votos": ["vote_count", "rating count", "rating_count", "ratingcount", "votes"],
+    "url": ["url", "fragrantica_url"],
+    "top": ["notes_top", "top", "top_notes", "top notes", "notestop"],
+    "medio": ["notes_middle", "middle", "middle_notes", "middle notes", "notesmiddle"],
+    "base": ["notes_base", "base", "base_notes", "base notes", "notesbase"],
+    "acordes": ["main_accords", "mainaccords", "accords", "main accords"],
+}
+FEED = {
+    "nombre": ["name", "title", "product_name", "nombre"],
+    "marca": ["brand", "marca", "manufacturer"],
+    "precio": ["price", "precio", "sale_price"],
+    "url": ["url", "link", "product_url", "deeplink"],
+    "img": ["image", "image_url", "image_link", "img"],
+}
+
+# Acordes de Fragrantica -> las 7 familias del cuestionario
+FAMILIAS = {
+    "fresco": ["fresh", "aquatic", "ozonic", "green", "aromatic", "fresh spicy", "marine", "herbal", "lavender", "mineral", "soapy", "clean", "salty", "camphor", "terpenic"],
+    "citrico": ["citrus"],
+    "floral": ["floral", "white floral", "rose", "yellow floral", "violet", "iris", "powdery", "tuberose", "jasmine", "aldehydic"],
+    "dulce": ["sweet", "vanilla", "gourmand", "caramel", "honey", "chocolate", "coffee", "fruity", "almond", "coconut", "tropical", "cherry", "lactonic", "cacao", "praline", "nutty", "rum", "whiskey"],
+    "amaderado": ["woody", "earthy", "oud", "patchouli", "mossy", "smoky", "leather", "cedar", "sandalwood", "conifer"],
+    "especiado": ["warm spicy", "spicy", "cinnamon", "tobacco", "saffron", "pepper", "clove", "cardamom", "soft spicy", "anis", "savory"],
+    "ambar": ["amber", "balsamic", "musky", "animalic", "resinous", "incense", "ambery"],
+}
+REV = {a: f for f, lista in FAMILIAS.items() for a in lista}
+
+# Estación, momento e intensidad se deducen de las familias (heurística)
+SEASONS = {"fresco": ["verano"], "citrico": ["verano", "primavera"], "floral": ["primavera"],
+           "dulce": ["otoño", "invierno"], "amaderado": ["otoño"], "especiado": ["otoño", "invierno"], "ambar": ["invierno"]}
+HOURS = {"fresco": ["mañana", "tarde"], "citrico": ["mañana", "tarde"], "floral": ["tarde"],
+         "dulce": ["noche"], "amaderado": ["tarde"], "especiado": ["noche"], "ambar": ["noche"]}
+INTENS = {"fresco": 1, "citrico": 1, "floral": 2, "amaderado": 2, "dulce": 3, "especiado": 3, "ambar": 3}
+
+NICHO = {"creed", "byredo", "diptyque", "le labo", "maison francis kurkdjian", "xerjoff", "nishane", "initio",
+         "amouage", "kilian", "parfums de marly", "frederic malle", "tom ford", "penhaligons", "mancera", "montale",
+         "memo", "by kilian", "editions de parfums frederic malle", "roja parfums", "tiziana terenzi", "floris", "penhaligon s", "roja", "serge lutens", "ex nihilo", "orto parisi", "nasomatto", "clive christian",
+         "juliette has a gun", "atelier cologne", "bdk parfums", "maison crivelli", "masque milano"}
+ECON = {"lattafa", "armaf", "afnan", "rasasi", "nautica", "davidoff", "antonio banderas", "ariana grande", "4711",
+        "adidas", "mexx", "playboy", "maison alhambra", "al haramain", "ajmal", "swiss arabian", "paris corner", "zara", "salvador dali", "shakira", "jeanne arthes"}
+
+
+csv.field_size_limit(10**8)
+
+
+def leer(ruta):
+    for enc in ("utf-8-sig", "latin-1"):
+        try:
+            with open(ruta, newline="", encoding=enc) as f:
+                sep = max(";,|\t", key=f.readline().count)
+                f.seek(0)
+                return list(csv.DictReader(f, delimiter=sep))
+        except UnicodeDecodeError:
+            continue
+    sys.exit("No pude leer " + ruta)
+
+
+def buscar(cabeceras, candidatas):
+    bajas = {c.lower().strip(): c for c in cabeceras}
+    for c in candidatas:
+        if c in bajas:
+            return bajas[c]
+    return None
+
+
+def norm(s):
+    s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode().lower()
+    s = re.sub(r"\b(eau de parfum|eau de toilette|parfum|edp|edt|for (wo)?men( and men)?|pour (homme|femme))\b", " ", s)
+    return re.sub(r"[^a-z0-9]+", " ", s).strip()
+
+
+def clave(nombre, marca):
+    n, m = norm(nombre), norm(marca)
+    if m and n.endswith(" " + m):
+        n = n[: -len(m)].strip()
+    return m + "|" + n
+
+
+def limpia(texto, marca=""):
+    t = (texto or "").strip()
+    if " " not in t and "-" in t:  # slug tipo "coco-mademoiselle"
+        t = t.replace("-", " ")
+    if t.islower():
+        t = re.sub(r"(^|[\s-])([a-z])", lambda m: m.group(1) + m.group(2).upper(), t)
+    t = re.sub(r"\s+for (wo)?men( and men)?$", "", t, flags=re.I)
+    if marca and t.lower().endswith(" " + marca.lower()):
+        t = t[: -len(marca) - 1]
+    return t.strip().replace("'", "’")
+
+
+def num(s):
+    m = re.search(r"\d+(?:[.,]\d+)?", str(s or ""))
+    return float(m.group(0).replace(",", ".")) if m else 0.0
+
+
+def genero(v):
+    v = (v or "").lower()
+    if "unisex" in v or ("women" in v and "men" in v.replace("women", "")):
+        return "u"
+    if "women" in v or "female" in v or "femin" in v:
+        return "f"
+    if "men" in v or "male" in v or "mascul" in v:
+        return "m"
+    return "u"
+
+
+def lista(valor):
+    return [x.strip() for x in re.split(r"[,;|]", valor or "") if x.strip()]
+
+
+TRAD = dict(x.split("=") for x in ("Bergamot=bergamota;Lemon=limón;Orange=naranja;Mandarin Orange=mandarina;Tangerine=mandarina;Grapefruit=pomelo;Lime=lima;"
+    "Orange Blossom=azahar;Neroli=neroli;Jasmine=jazmín;Rose=rosa;Lavender=lavanda;Vanilla=vainilla;Tonka Bean=haba tonka;Amber=ámbar;Musk=almizcle;"
+    "White Musk=almizcle blanco;Sandalwood=sándalo;Cedar=cedro;Patchouli=pachulí;Vetiver=vetiver;Oakmoss=musgo de roble;Pepper=pimienta;"
+    "Black Pepper=pimienta negra;Pink Pepper=pimienta rosa;Cinnamon=canela;Cardamom=cardamomo;Nutmeg=nuez moscada;Clove=clavo;Ginger=jengibre;"
+    "Saffron=azafrán;Iris=iris;Violet=violeta;Peony=peonía;Lily-of-the-Valley=muguete;Tuberose=nardo;Ylang-Ylang=ylang-ylang;Geranium=geranio;"
+    "Mint=menta;Basil=albahaca;Sage=salvia;Rosemary=romero;Apple=manzana;Pear=pera;Peach=melocotón;Raspberry=frambuesa;Strawberry=fresa;"
+    "Blackcurrant=grosella negra;Cherry=cereza;Coconut=coco;Pineapple=piña;Fig=higo;Almond=almendra;Coffee=café;Cocoa=cacao;Chocolate=chocolate;"
+    "Caramel=caramelo;Honey=miel;Praline=praliné;Tobacco=tabaco;Leather=cuero;Incense=incienso;Oud=oud;Myrrh=mirra;Benzoin=benjuí;"
+    "Labdanum=láudano;Green Notes=notas verdes;Aldehydes=aldehídos;Sea Notes=notas marinas;Marine Notes=notas marinas;Juniper=enebro;"
+    "Cypress=ciprés;Pine=pino;Guaiac Wood=guayaco;Woody Notes=notas amaderadas;Rum=ron;Plum=ciruela;Cumin=comino;Lychee=lichi;Bitter Orange=naranja amarga;"
+    "Cashmeran=cashmeran;Ambroxan=ambroxan;Ambergris=ámbar gris;Elemi=elemí;Cashmere Wood=madera de cachemira;Sicilian Lemon=limón siciliano;"
+    "Calabrian Bergamot=bergamota de Calabria;Turkish Rose=rosa turca;Bulgarian Rose=rosa búlgara;Damask Rose=rosa de Damasco;Freesia=fresia;"
+    "Magnolia=magnolia;Gardenia=gardenia;Melon=melón;Watermelon=sandía;Banana=plátano;Mango=mango;Passionfruit=maracuyá;Papaya=papaya;Cassis=grosella negra;"
+    "Mimosa=mimosa;Heliotrope=heliotropo;Lily=lirio;Orchid=orquídea;Carnation=clavel;Hawthorn=espino;Anise=anís;Coriander=cilantro;Cypriol=cipriol;Black Currant=grosella negra;Sichuan Pepper=pimienta de Sichuan;Bamboo=bambú;Dates=dátil;Sea Water=agua de mar;Birch=abedul;"
+    "Ambrette=ambreta;Pink Grapefruit=pomelo rosa;Blood Orange=naranja sanguina;Violet Leaf=hoja de violeta;White Flowers=flores blancas;Cocoa Bean=cacao;"
+    "Tonka=haba tonka;Sandal=sándalo;Cedarwood=madera de cedro;Mate=mate;Vodka=vodka;Whiskey=whisky;Cognac=coñac;Bourbon Vanilla=vainilla de Bourbon").split(";"))
+TRAD = {k.lower(): v for k, v in TRAD.items()}
+
+
+def pesos(valor):
+    out = []
+    for i, x in enumerate(re.split(r"[|,;]", valor or "")):
+        x = x.strip()
+        if not x:
+            continue
+        n, _, p = x.partition(":")
+        out.append((n.strip(), num(p) if p else max(20, 100 - 20 * i)))
+    return out
+
+
+def estaciones(f):
+    v = {"invierno": num(f.get("winter")), "primavera": num(f.get("spring")), "verano": num(f.get("summer")), "otoño": num(f.get("autumn"))}
+    t = sum(v.values())
+    return [s for s in sorted(v, key=lambda s: -v[s]) if t and v[s] / t >= 0.28][:2]
+
+
+def momento(f):
+    d, n = num(f.get("day")), num(f.get("night"))
+    if d + n == 0:
+        return []
+    p = d / (d + n)
+    return ["mañana", "tarde"] if p >= 0.6 else ["noche"] if p <= 0.4 else ["tarde", "noche"]
+
+
+def intensidad(f):
+    s = num(f.get("sillage_avg"))
+    return 0 if not s else 1 if s < 2.15 else 2 if s < 2.45 else 3
+
+
+def familias(acordes):
+    puntos = {}
+    for nombre, peso in acordes[:8]:
+        f = REV.get(nombre.lower())
+        if f:
+            puntos[f] = puntos.get(f, 0) + peso
+    if not puntos:
+        return []
+    mejor = max(puntos.values())
+    return [f for f in sorted(puntos, key=lambda f: -puntos[f]) if puntos[f] >= mejor * 0.35][:3]
+
+
+def unicos(items, tope=2):
+    out = []
+    for x in items:
+        if x not in out:
+            out.append(x)
+    return out[:tope]
+
+
+def rango(marca, precio):
+    m = norm(marca)
+    en = lambda L: any(m == x or m.startswith(x + " ") for x in L)
+    if en(NICHO):
+        return "n"
+    if en(ECON) or (precio and precio <= 60):
+        return "e"
+    return "d"
+
+
+def cargar_feed(ruta):
+    filas = leer(ruta)
+    if not filas:
+        sys.exit("El feed está vacío")
+    c = {k: buscar(filas[0].keys(), v) for k, v in FEED.items()}
+    if not c["nombre"] or not c["marca"]:
+        sys.exit("No encuentro nombre/marca en el feed. Columnas: " + ", ".join(filas[0].keys()))
+    feed = {}
+    for f in filas:
+        marca = f[c["marca"]]
+        feed.setdefault(clave(f[c["nombre"]], marca), {
+            "u": f.get(c["url"], "") if c["url"] else "",
+            "p": num(f.get(c["precio"])) if c["precio"] else 0,
+            "img": f.get(c["img"], "") if c["img"] else "",
+        })
+    return feed
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("dataset")
+    ap.add_argument("--feed")
+    ap.add_argument("--solo-notino", action="store_true")
+    ap.add_argument("--salida", default="catalogo.json")
+    ap.add_argument("--min-votos", type=int, default=300)
+    ap.add_argument("--max-por-rango", type=int, default=400)
+    a = ap.parse_args()
+
+    filas = leer(a.dataset)
+    if not filas:
+        sys.exit("El dataset está vacío")
+    cab = list(filas[0].keys())
+    c = {k: buscar(cab, v) for k, v in COLUMNAS.items()}
+    cols_acorde = sorted(x for x in cab if x.lower().startswith("mainaccord") and "percent" not in x.lower())
+    if not c["nombre"] or not c["marca"] or not (cols_acorde or c["acordes"]):
+        sys.exit("No encuentro nombre, marca o acordes. Columnas de tu CSV:\n" + ", ".join(cab))
+
+    feed = cargar_feed(a.feed) if a.feed else {}
+    catalogo, vistos = [], set()
+    for f in filas:
+        marca = limpia(f[c["marca"]])
+        nombre = limpia(f[c["nombre"]], marca)
+        if not nombre or not marca:
+            continue
+        votos = num(f.get(c["votos"])) if c["votos"] else 0
+        if votos < a.min_votos and c["votos"]:
+            continue
+        k = clave(nombre, marca)
+        if k in vistos:
+            continue
+        en_feed = feed.get(k)
+        if a.solo_notino and feed and not en_feed:
+            continue
+        acordes = pesos(f.get(c["acordes"])) if c["acordes"] else [(f[x], 100 - 20 * i) for i, x in enumerate(cols_acorde) if f.get(x)]
+        fam = familias(acordes)
+        if not fam:
+            continue
+        vistos.add(k)
+        notas = []
+        for campo in ("top", "medio", "base"):
+            if c[campo]:
+                ps = sorted(pesos(f.get(c[campo])), key=lambda x: -x[1])[:2]
+                notas += [TRAD.get(n.lower(), n.lower()) for n, _ in ps]
+        notas = unicos(notas, 6)
+        rec = {
+            "n": nombre, "b": marca,
+            "t": rango(marca, en_feed["p"] if en_feed else 0),
+            "g": genero(f.get(c["genero"]) if c["genero"] else ""),
+            "k": fam,
+            "s": estaciones(f) or unicos(x for q in fam[:2] for x in SEASONS[q]),
+            "h": momento(f) or unicos(x for q in fam[:2] for x in HOURS[q]),
+            "i": intensidad(f) or round(sum(INTENS[q] for q in fam[:2]) / len(fam[:2])),
+            "d": ("Notas: " + ", ".join(notas) + ".") if notas else "",
+            "v": int(votos),
+        }
+        if c["url"] and f.get(c["url"]):
+            rec["f"] = f[c["url"]]
+        if en_feed:
+            rec.update({x: en_feed[x] for x in ("u", "p", "img") if en_feed[x]})
+        catalogo.append(rec)
+
+    final = []
+    for t in "edn":
+        grupo = sorted((r for r in catalogo if r["t"] == t), key=lambda r: -r["v"])[: a.max_por_rango]
+        final += grupo
+        print(f"{t}: {len(grupo)} perfumes")
+    for r in final:
+        r.pop("v")
+    with open(a.salida, "w", encoding="utf-8") as out:
+        json.dump(final, out, ensure_ascii=False, separators=(",", ":"))
+    print(f"Escrito {a.salida} con {len(final)} perfumes")
+    if not feed:
+        print("Aviso: sin feed, el rango se decide solo por marca (las marcas no listadas salen como diseñador).")
+
+
+if __name__ == "__main__":
+    main()
