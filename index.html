@@ -8,9 +8,8 @@
 <link rel="canonical" href="https://fraganciapropia.es/">
 <meta property="og:type" content="website"><meta property="og:site_name" content="Fragancia Propia"><meta property="og:locale" content="es_ES">
 <meta property="og:title" content="Fragancia Propia: encuentra tu perfume"><meta property="og:description" content="Nueve preguntas y te recomendamos perfumes que encajan contigo, en todos los rangos de precio."><meta property="og:url" content="https://fraganciapropia.es/">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preload" href="/fuentes/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/fuentes/fuentes.css">
 <script>try{var t=localStorage.getItem("fp:theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}catch(e){}</script>
 <style>
 :root{--bg:#fff;--card:#fff;--soft:#F4F4F4;--ink:#111;--mute:#595959;--acc:#111;--accink:#fff;--sun:#C9C9C9;--line:#D9D9D9;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -59,7 +58,7 @@ h1:focus,h2:focus{outline:none}
 .chips{display:flex;flex-wrap:wrap;gap:.4rem}
 .chips span{font-size:.85rem;border:1px solid var(--line);border-radius:99px;padding:.1rem .65rem}
 .lk{margin-top:auto;display:flex;gap:1.2rem;flex-wrap:wrap}.card a{color:var(--acc);font-weight:600;text-decoration:underline;text-underline-offset:3px}.card h3 a.nm{color:var(--ink);font-weight:inherit;text-decoration:none}.card h3 a.nm:hover{text-decoration:underline}
-.foot{color:var(--mute);font-size:.9rem;margin-top:3rem}
+.foot{color:var(--mute);font-size:.9rem;margin-top:3rem}.foot.site a{color:var(--mute)}
 .hd{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
 .tools{flex-wrap:wrap}.nav{display:flex;gap:1.1rem;flex-wrap:wrap}.nav a{color:var(--mute);font-weight:500;text-underline-offset:3px}
 .tools{display:flex;align-items:center;gap:.9rem}
@@ -111,8 +110,10 @@ a.again{display:inline-block;text-decoration:none}
 <section id="results" class="res" hidden></section>
 <section id="favs" class="res" hidden></section>
 <div id="share" hidden></div>
+<footer class="foot site"><a href="/perfumes/">Explorar perfumes</a> · <a href="/alternativas-baratas/">Alternativas baratas</a> · <a href="/marcas/">Marcas</a> · <a href="/aviso-legal/">Aviso legal</a> · <a href="/privacidad/">Privacidad y cookies</a></footer>
 </div>
 
+<script src="/tiendas.js"></script>
 <script>
 const L={fresco:"Fresco",citrico:"Cítrico",floral:"Floral",dulce:"Dulce",amaderado:"Amaderado",especiado:"Especiado",ambar:"Ambarado"};
 const PL={fresco:"frescos",citrico:"cítricos",floral:"florales",dulce:"dulces",amaderado:"amaderados",especiado:"especiados",ambar:"ambarados"};
@@ -176,13 +177,12 @@ const T=[
 
 const $=s=>document.querySelector(s);
 const esc=s=>(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;");
-/* Para monetizar: sustituye esta función por tus enlaces de afiliado */
-/* AFILIADOS: cuando te aprueben, pega aquí la plantilla de tu enlace. {URL} se sustituye por el enlace de Notino.
-   Ejemplo: "https://TU-ENLACE-DE-RED/?url={URL}" (el formato exacto lo da tu red de afiliados). Vacío = enlaces normales. */
-const AFF="";
+/* AFILIADOS: las tiendas y tus códigos se configuran en afiliados.json; generar_web.py crea tiendas.js con ellos. */
+const TI=window.FP_TIENDAS||[{id:"notino",n:"Notino",b:"https://www.notino.es/search.asp?exps={Q}",a:"",tag:""}];
+const AVISO=window.FP_AVISO||"";
 /* IMÁGENES: opcional, desde tu feed de productos. Ejemplo: {"Khamrah Lattafa":"https://.../foto.jpg"} */
 const IMG={};
-const buy=p=>{const u=p.u||"https://www.notino.es/search.asp?exps="+encodeURIComponent(p.n+" "+p.b);return AFF?AFF.replace("{URL}",encodeURIComponent(u)):u;};
+const buy=(t,p)=>{let u=(t.id==="notino"&&p.u)||t.b.replace("{Q}",encodeURIComponent(p.n+" "+p.b));if(t.tag)u+=(u.includes("?")?"&":"?")+"tag="+encodeURIComponent(t.tag);return t.a?t.a.replace("{URL}",encodeURIComponent(u)).replace("{URL_RAW}",u):u;};
 const C={fresco:"#4FA3C7",citrico:"#E6B422",floral:"#D96C9B",dulce:"#C9783F",amaderado:"#7A5C3E",especiado:"#B5452B",ambar:"#D98B2B"};
 const SH=[[[14,44,52,64,10],[20,72,40,30,6]],[[12,52,56,56,28],[19,78,42,24,12]],[[22,36,36,72,6],[27,68,26,34,3]]];
 const rc=(a,s)=>`<rect x="${a[0]}" y="${a[1]}" width="${a[2]}" height="${a[3]}" rx="${a[4]||0}" ${s}/>`;
@@ -225,7 +225,7 @@ function toggleFav(k){
   syncFav();
 }
 
-const cardH=(p,why)=>`<article class="card"><button class="fav" data-k="${encodeURIComponent(pk(p))}" aria-pressed="${isFav(p)}" aria-label="Guardar ${esc(p.n)} en favoritos">♥</button>${bottle(p)}<h3><a class="nm" href="${ficha(p)}">${esc(p.n)}</a></h3><p class="brand">${esc(p.b)}</p>${why?`<p class="why">${why}</p>`:""}<p class="d">${esc(p.d)}</p><div class="chips">${p.k.slice(0,3).map(k=>`<span>${L[k]}</span>`).join("")}</div><div class="lk"><a href="${ficha(p)}">Ver ficha y alternativas</a>${p.f?`<a href="${p.f}" target="_blank" rel="noopener">Ficha en Fragrantica</a>`:""}${AFF||p.u?`<a href="${buy(p)}" target="_blank" rel="sponsored noopener">Comprar</a>`:""}</div></article>`;
+const cardH=(p,why)=>`<article class="card"><button class="fav" data-k="${encodeURIComponent(pk(p))}" aria-pressed="${isFav(p)}" aria-label="Guardar ${esc(p.n)} en favoritos">♥</button>${bottle(p)}<h3><a class="nm" href="${ficha(p)}">${esc(p.n)}</a></h3><p class="brand">${esc(p.b)}</p>${why?`<p class="why">${why}</p>`:""}<p class="d">${esc(p.d)}</p><div class="chips">${p.k.slice(0,3).map(k=>`<span>${L[k]}</span>`).join("")}</div><div class="lk"><a href="${ficha(p)}">Ver ficha y alternativas</a>${p.f?`<a href="${p.f}" target="_blank" rel="noopener">Ficha en Fragrantica</a>`:""}${TI.map(t=>`<a href="${esc(buy(t,p))}" target="_blank" rel="sponsored nofollow noopener">Ver en ${esc(t.n)}</a>`).join("")}</div></article>`;
 
 /* ---------- resultados ---------- */
 let R=null;
@@ -267,7 +267,7 @@ function results(){
   R={tag,sea,tim,inten,top,F:{gen:g,est:"",int:"",fav:false},shown:{e:3,d:3,n:3}};
   $("#results").innerHTML=
     `<h2 class="t">Tu selección</h2>`+
-    `<p class="lead">Te van los aromas ${top.join(" y ")}. Estos son los perfumes que mejor encajan contigo en cada rango de precio.${AFF?" Los enlaces a Notino son de afiliado: si compras a través de ellos, podemos recibir una comisión sin coste extra para ti.":""}</p>`+
+    `<p class="lead">Te van los aromas ${top.join(" y ")}. Estos son los perfumes que mejor encajan contigo en cada rango de precio.${AVISO?" "+esc(AVISO):""}</p>`+
     `<div class="acts"><button class="again" id="share-btn">Compartir mi perfil</button><button class="again" id="again">Repetir el cuestionario</button></div>`+
     `<div class="filters" role="group" aria-label="Filtros">`+
       `<label>Género<select data-f="gen"><option value="x">Todos</option><option value="m">Masculinos</option><option value="f">Femeninos</option></select></label>`+

@@ -1,0 +1,17 @@
+{
+  "_ayuda": [
+    "Datos del titular de la web. Aparecen en /aviso-legal/ y /privacidad/.",
+    "Son obligatorios en España (LSSI y RGPD) y las redes de afiliados los revisan antes de aprobarte.",
+    "titular: tu nombre y apellidos (o el nombre de tu empresa).",
+    "nif: tu DNI/NIE o el CIF de la empresa.",
+    "domicilio: dirección postal o, como mínimo, localidad y provincia.",
+    "email: un correo de contacto; puedes crear uno solo para la web.",
+    "actualizado: fecha de la última revisión de la política de privacidad (AAAA-MM-DD). Cámbiala si cambias cómo tratas datos.",
+    "Si dejas un campo vacío, saldrá como [pendiente]."
+  ],
+  "titular": "",
+  "nif": "",
+  "domicilio": "",
+  "email": "",
+  "actualizado": "2026-11-17"
+}

@@ -3,27 +3,31 @@
 
 Uso:
     python generar_web.py
-    python generar_web.py --afiliado "https://TU-ENLACE-DE-RED/?url={URL}"
+
+Configuración:
+    afiliados.json   tiendas de los botones de compra y tus códigos de afiliado
+    sitio.json       datos del titular para el aviso legal
 
 Crea (y regenera desde cero cada vez):
     perfume/<slug>/          ficha de cada perfume + similares + alternativas más baratas
     marca/<slug>/            todos los perfumes de una marca
     perfumes/<lista>/        listados: "perfumes dulces para mujer", "perfumes de invierno para hombre"...
     perfumes/  marcas/  alternativas-baratas/   páginas índice
-    estilo.css  sitemap.xml  robots.txt
+    aviso-legal/  privacidad/   páginas legales
+    estilo.css  tiendas.js  sitemap.xml  robots.txt
 
-Solo usa la librería estándar de Python. Vuelve a ejecutarlo cada vez que cambie catalogo.json
-o cuando tengas tu enlace de afiliado.
+Solo usa la librería estándar de Python. Con la publicación por GitHub Actions
+(.github/workflows/web.yml) se ejecuta sola en cada cambio de la rama main.
 """
 import argparse, datetime, html, json, os, re, shutil, unicodedata
-from urllib.parse import quote
+from urllib.parse import quote, quote_plus
 from collections import defaultdict
 
 SITIO = "https://fraganciapropia.es"
 NOMBRE = "Fragancia Propia"
-# Plantilla de afiliado: {URL} se sustituye por el enlace de Notino. Vacío = enlace normal.
-AFILIADO = ""
-CARPETAS = ["perfume", "marca", "perfumes", "marcas", "alternativas-baratas"]
+TIENDAS = []  # se cargan de afiliados.json
+SITIO_DATOS = {}  # se cargan de sitio.json
+CARPETAS = ["perfume", "marca", "perfumes", "marcas", "alternativas-baratas", "aviso-legal", "privacidad"]
 
 L = {"fresco": "Fresco", "citrico": "Cítrico", "floral": "Floral", "dulce": "Dulce",
      "amaderado": "Amaderado", "especiado": "Especiado", "ambar": "Ambarado"}
@@ -115,9 +119,34 @@ def grado(s):
 
 
 # ---------------------------------------------------------------- plantillas
+def enlace(t, p):
+    u = p.get("u") if t["id"] == "notino" and p.get("u") else t["buscar"].replace("{Q}", quote_plus(p["n"] + " " + p["b"]))
+    if t.get("tag"):
+        u += ("&" if "?" in u else "?") + "tag=" + quote(t["tag"])
+    af = t.get("afiliado") or ""
+    return af.replace("{URL}", quote(u, safe="")).replace("{URL_RAW}", u) if af else u
+
+
+def con_comision(t):
+    return bool(t.get("afiliado") or t.get("tag"))
+
+
 def comprar(p):
-    u = p.get("u") or "https://www.notino.es/search.asp?exps=" + quote(p["n"] + " " + p["b"])
-    return AFILIADO.replace("{URL}", quote(u, safe="")) if AFILIADO else u
+    return [(t["nombre"], enlace(t, p)) for t in TIENDAS]
+
+
+def botones(p, primero="cta", resto="again", texto="Ver precio en {}"):
+    return "".join(f'<a class="{primero if i == 0 else resto}" href="{e(u)}" target="_blank" rel="sponsored nofollow noopener">'
+                   f'{e(texto.format(n))}</a>' for i, (n, u) in enumerate(comprar(p)))
+
+
+def aviso_afiliados():
+    if not any(con_comision(t) for t in TIENDAS):
+        return ""
+    txt = " Algunos enlaces a tiendas son de afiliado: si compras a través de ellos podemos recibir una comisión sin coste extra para ti."
+    if any(t["id"] == "amazon" and con_comision(t) for t in TIENDAS):
+        txt += " En calidad de Afiliado de Amazon, obtengo ingresos por las compras adscritas que cumplen los requisitos aplicables."
+    return txt
 
 
 def tarjeta(p, extra=""):
@@ -125,8 +154,7 @@ def tarjeta(p, extra=""):
     return (f'<article class="card"><span class="tg t{p["t"]}">{TIER[p["t"]][0]}</span>'
             f'<h3><a href="{p["url"]}">{e(p["n"])}</a></h3><p class="brand">{e(p["b"])} · {GEN[p["g"]]}</p>'
             f'{extra}<p class="d">{e(p.get("d"))}</p><div class="chips">{chips}</div>'
-            f'<div class="lk"><a href="{p["url"]}">Ver ficha</a>'
-            f'<a href="{e(comprar(p))}" target="_blank" rel="sponsored nofollow noopener">Ver precio</a></div></article>')
+            f'<div class="lk"><a href="{p["url"]}">Ver ficha</a>{botones(p, "", "", "Ver en {}")}</div></article>')
 
 
 def tarjeta_sim(base, s, q):
@@ -151,15 +179,13 @@ def migas(pares):
 def pagina(ruta, titulo, desc, cuerpo, ld=()):
     can = SITIO + ruta
     lds = "".join(f'<script type="application/ld+json">{json.dumps(x, ensure_ascii=False)}</script>' for x in ld)
-    aviso = (" Algunos enlaces son de afiliado: si compras a través de ellos podemos recibir una comisión sin coste extra para ti."
-             if AFILIADO else "")
+    aviso = aviso_afiliados()
     return f"""<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{e(titulo)}</title><meta name="description" content="{e(desc)}"><link rel="canonical" href="{can}">
 <meta property="og:type" content="website"><meta property="og:site_name" content="{NOMBRE}"><meta property="og:locale" content="es_ES">
 <meta property="og:title" content="{e(titulo)}"><meta property="og:description" content="{e(desc)}"><meta property="og:url" content="{can}">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preload" href="/fuentes/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/fuentes/fuentes.css">
 <link rel="stylesheet" href="/estilo.css">
 <script>try{{var t=localStorage.getItem("fp:theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}}catch(e){{}}</script>
 {lds}</head><body><div class="wrap">
@@ -168,7 +194,7 @@ def pagina(ruta, titulo, desc, cuerpo, ld=()):
 <aside class="cta-box"><h2>¿No sabes cuál elegir?</h2><p>Responde nueve preguntas sobre tu momento del día, tu estación y tus planes, y te recomendamos perfumes económicos, de diseñador y de nicho.</p><a class="cta" href="/">Hacer el cuestionario</a></aside>
 </main>
 <footer class="foot"><p>Datos orientativos basados en los votos de la comunidad de Fragrantica. Los rangos de precio son aproximados y la disponibilidad depende de cada tienda.{aviso}</p>
-<p><a href="/">Cuestionario</a> · <a href="/perfumes/">Explorar perfumes</a> · <a href="/alternativas-baratas/">Alternativas baratas</a> · <a href="/marcas/">Marcas</a></p></footer>
+<p><a href="/">Cuestionario</a> · <a href="/perfumes/">Explorar perfumes</a> · <a href="/alternativas-baratas/">Alternativas baratas</a> · <a href="/marcas/">Marcas</a> · <a href="/aviso-legal/">Aviso legal</a> · <a href="/privacidad/">Privacidad y cookies</a></p></footer>
 </div></body></html>
 """
 
@@ -206,7 +232,7 @@ def ficha(p, similares, alts, alts_d, marca_url):
              f'<div><dt>Estación</dt><dd>{e(est.capitalize())}</dd></div><div><dt>Momento</dt><dd>{e(mom.capitalize())}</dd></div>'
              f'<div><dt>Presencia</dt><dd>{INT.get(p["i"], "equilibrada").capitalize()}</dd></div>'
              f'<div><dt>Género</dt><dd>{GEN[p["g"]].capitalize()}</dd></div><div><dt>Rango</dt><dd>{tier}</dd></div></dl>')
-    acc = (f'<div class="acts"><a class="cta" href="{e(comprar(p))}" target="_blank" rel="sponsored nofollow noopener">Ver precio de {e(nombre)}</a>'
+    acc = (f'<div class="acts">{botones(p)}'
            + (f'<a class="again" href="{e(p["f"])}" target="_blank" rel="noopener">Ficha en Fragrantica</a>' if p.get("f") else "") + "</div>")
     cuerpo = ""
     if alts:
@@ -235,14 +261,96 @@ def ranking(items, n):
     return sorted(items, key=lambda p: -p["pop"])[:n]
 
 
+def leer_json(ruta, defecto):
+    try:
+        with open(ruta, encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return defecto
+
+
+def legales(raiz, urls):
+    d = {k: str(SITIO_DATOS.get(k) or "").strip() for k in ("titular", "nif", "domicilio", "email")}
+    falta = [k for k, v in d.items() if not v]
+    if falta:
+        print("AVISO: completa sitio.json (" + ", ".join(falta) + ") para que el aviso legal sea válido.")
+    v = {k: e(x) if x else "[pendiente]" for k, x in d.items()}
+    redes = [t["nombre"] for t in TIENDAS if con_comision(t)]
+    nav, ld = migas([("Inicio", "/"), ("Aviso legal", None)])
+    c = (f'{nav}<h1>Aviso legal</h1><div class="prose">'
+         f'<h2>Titular</h2><p>En cumplimiento de la Ley 34/2002 de Servicios de la Sociedad de la Información (LSSI), se informa de que '
+         f'el titular de {NOMBRE} ({SITIO.split("//")[1]}) es <b>{v["titular"]}</b>, con NIF {v["nif"]} y domicilio en {v["domicilio"]}. '
+         f'Contacto: {v["email"]}.</p>'
+         f'<h2>Objeto</h2><p>{NOMBRE} es una web informativa que recomienda perfumes según las preferencias de cada persona. '
+         f'No vende productos: los enlaces de compra llevan a tiendas externas, que son las responsables de los precios, la disponibilidad, '
+         f'el envío y la atención al cliente.</p>'
+         f'<h2>Enlaces de afiliado</h2><p>Algunos enlaces a tiendas pueden ser de afiliado. Si compras a través de ellos, {NOMBRE} puede '
+         f'recibir una comisión sin que el precio cambie para ti. Esto no influye en las recomendaciones, que se calculan a partir de '
+         f'tus respuestas y de los datos del catálogo.' + (f" Programas actuales: {e(y(redes))}." if redes else "") +
+         (" En calidad de Afiliado de Amazon, obtengo ingresos por las compras adscritas que cumplen los requisitos aplicables."
+          if any(t["id"] == "amazon" and con_comision(t) for t in TIENDAS) else "") + '</p>'
+         f'<h2>Información sobre los perfumes</h2><p>Las notas, estaciones, momentos de uso e intensidades se basan en los votos de la '
+         f'comunidad de Fragrantica y son orientativos. Los rangos de precio son aproximados. Las marcas y nombres de perfumes pertenecen '
+         f'a sus respectivos titulares y se citan solo con fines informativos. Las «alternativas» indican perfumes con un perfil olfativo '
+         f'parecido, no copias ni productos equivalentes.</p>'
+         f'<h2>Propiedad intelectual</h2><p>Los textos, el diseño y el código de esta web pertenecen a su titular, salvo los datos y '
+         f'marcas de terceros mencionados.</p></div>')
+    escribir(raiz, "/aviso-legal/", pagina("/aviso-legal/", f"Aviso legal | {NOMBRE}",
+                                           f"Aviso legal de {NOMBRE}: titular, objeto de la web y enlaces de afiliado.", c, [ld]), urls)
+    nav, ld = migas([("Inicio", "/"), ("Privacidad y cookies", None)])
+    fecha = e(SITIO_DATOS.get("actualizado") or datetime.date.today().isoformat())
+    c = (f'{nav}<h1>Privacidad y cookies</h1><div class="prose"><p class="n">Última actualización: {fecha}</p>'
+         f'<h2>1. Responsable del tratamiento</h2><p>{v["titular"]}, con NIF {v["nif"]} y domicilio en {v["domicilio"]}. '
+         f'Contacto: {v["email"]}.</p>'
+         f'<h2>2. Qué datos tratamos y para qué</h2><p>{NOMBRE} no tiene formularios, cuentas de usuario, newsletter ni herramientas '
+         f'de analítica, y no te pide datos personales. Tus respuestas al cuestionario se procesan solo en tu navegador y no se envían '
+         f'a ningún servidor.</p><ul>'
+         f'<li><b>Datos técnicos de conexión</b> (dirección IP, navegador, página solicitada): los registra automáticamente el servicio '
+         f'de alojamiento para servir la web y protegerla frente a abusos. Base legal: interés legítimo en el funcionamiento y la '
+         f'seguridad de la web (art. 6.1.f RGPD).</li>'
+         f'<li><b>Correos que nos envíes</b>: si escribes a {v["email"]}, usaremos tu dirección y tu mensaje solo para responderte. '
+         f'Base legal: tu consentimiento al escribirnos (art. 6.1.a RGPD). Los conservaremos el tiempo necesario para atender tu consulta.</li></ul>'
+         f'<h2>3. Destinatarios y transferencias internacionales</h2><p>La web está alojada en <b>GitHub Pages</b> (GitHub, Inc., '
+         f'Estados Unidos), que actúa como proveedor de alojamiento y conserva los registros técnicos según su propia política de '
+         f'privacidad. GitHub está adherida al Marco de Privacidad de Datos UE-EE. UU. (EU-US Data Privacy Framework), que la Comisión '
+         f'Europea considera una garantía adecuada para estas transferencias. No cedemos ni vendemos datos a terceros.</p>'
+         f'<h2>4. Cookies y almacenamiento local</h2><p><b>Esta web no instala cookies</b>, ni propias ni de terceros. Las tipografías '
+         f'se sirven desde nuestro propio dominio, sin conectarse a servicios externos.</p><p>Usamos el almacenamiento local de tu '
+         f'navegador (localStorage) solo para recordar los perfumes que guardas como favoritos y si prefieres el modo claro u oscuro. '
+         f'Esa información no sale de tu dispositivo, no sirve para identificarte y es necesaria para funciones que tú solicitas, por '
+         f'lo que no requiere consentimiento (art. 22.2 LSSI). Puedes borrarla desde los ajustes de tu navegador.</p>'
+         f'<h2>5. Enlaces a tiendas y programas de afiliados</h2><p>Al pulsar un enlace de compra sales de {NOMBRE}. A partir de ese '
+         f'momento, la tienda y, en su caso, la red de afiliados (por ejemplo CJ, Awin o Amazon) pueden instalar sus propias cookies '
+         f'en sus dominios para registrar que la visita llegó desde aquí y atribuir la compra. Ese tratamiento es responsabilidad de '
+         f'cada tienda o red y se rige por sus políticas de privacidad y cookies, que te recomendamos revisar. {NOMBRE} no recibe '
+         f'datos personales tuyos de esas compras, solo informes agregados de comisiones.</p>'
+         f'<h2>6. Tus derechos</h2><p>Puedes ejercer tus derechos de acceso, rectificación, supresión, oposición, limitación del '
+         f'tratamiento y portabilidad escribiendo a {v["email"]}. Si consideras que no hemos atendido correctamente tu solicitud, '
+         f'puedes presentar una reclamación ante la Agencia Española de Protección de Datos (www.aepd.es).</p>'
+         f'<h2>7. Cambios</h2><p>Si cambiamos la forma de tratar datos (por ejemplo, si añadimos analítica o un formulario), '
+         f'actualizaremos esta página y su fecha.</p></div>')
+    escribir(raiz, "/privacidad/", pagina("/privacidad/", f"Privacidad y cookies | {NOMBRE}",
+                                          f"Política de privacidad y cookies de {NOMBRE}.", c, [ld]), urls)
+
+
+def tiendas_js(raiz):
+    cfg = [{"id": t["id"], "n": t["nombre"], "b": t["buscar"], "a": t.get("afiliado") or "", "tag": t.get("tag") or ""} for t in TIENDAS]
+    with open(os.path.join(raiz, "tiendas.js"), "w", encoding="utf-8") as f:
+        f.write("/* Generado por generar_web.py a partir de afiliados.json: no lo edites a mano. */\n"
+                f"window.FP_TIENDAS={json.dumps(cfg, ensure_ascii=False)};\n"
+                f"window.FP_AVISO={json.dumps(aviso_afiliados().strip(), ensure_ascii=False)};\n")
+
+
 def main():
-    global AFILIADO
+    global TIENDAS, SITIO_DATOS
     ap = argparse.ArgumentParser()
     ap.add_argument("--catalogo", default="catalogo.json")
     ap.add_argument("--salida", default=".")
-    ap.add_argument("--afiliado", default=AFILIADO)
     a = ap.parse_args()
-    AFILIADO = a.afiliado
+    base = os.path.dirname(os.path.abspath(__file__))
+    TIENDAS = [t for t in leer_json(os.path.join(base, "afiliados.json"), {}).get("tiendas", []) if t.get("mostrar")] or \
+        [{"id": "notino", "nombre": "Notino", "buscar": "https://www.notino.es/search.asp?exps={Q}"}]
+    SITIO_DATOS = leer_json(os.path.join(base, "sitio.json"), {})
     with open(a.catalogo, encoding="utf-8") as f:
         P = json.load(f)
     preparar(P)
@@ -372,6 +480,9 @@ def main():
     escribir(raiz, "/alternativas-baratas/", pagina("/alternativas-baratas/", "Alternativas baratas a perfumes caros: las mejores",
                                                     "Alternativas económicas a perfumes de diseñador y de nicho populares, con perfil olfativo parecido y notas en común.",
                                                     c, [ld0]), urls)
+
+    legales(raiz, urls)
+    tiendas_js(raiz)
 
     # CSS, sitemap, robots
     shutil.copyfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), "plantillas", "estilo.css"), os.path.join(raiz, "estilo.css"))
