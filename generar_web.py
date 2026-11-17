@@ -185,8 +185,7 @@ def pagina(ruta, titulo, desc, cuerpo, ld=()):
 <title>{e(titulo)}</title><meta name="description" content="{e(desc)}"><link rel="canonical" href="{can}">
 <meta property="og:type" content="website"><meta property="og:site_name" content="{NOMBRE}"><meta property="og:locale" content="es_ES">
 <meta property="og:title" content="{e(titulo)}"><meta property="og:description" content="{e(desc)}"><meta property="og:url" content="{can}">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="preload" href="/fuentes/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/fuentes/fuentes.css">
 <link rel="stylesheet" href="/estilo.css">
 <script>try{{var t=localStorage.getItem("fp:theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}}catch(e){{}}</script>
 {lds}</head><body><div class="wrap">
@@ -271,7 +270,7 @@ def leer_json(ruta, defecto):
 
 
 def legales(raiz, urls):
-    d = {k: (SITIO_DATOS.get(k) or "").strip() for k in ("titular", "nif", "domicilio", "email")}
+    d = {k: str(SITIO_DATOS.get(k) or "").strip() for k in ("titular", "nif", "domicilio", "email")}
     falta = [k for k, v in d.items() if not v]
     if falta:
         print("AVISO: completa sitio.json (" + ", ".join(falta) + ") para que el aviso legal sea válido.")
@@ -299,20 +298,37 @@ def legales(raiz, urls):
     escribir(raiz, "/aviso-legal/", pagina("/aviso-legal/", f"Aviso legal | {NOMBRE}",
                                            f"Aviso legal de {NOMBRE}: titular, objeto de la web y enlaces de afiliado.", c, [ld]), urls)
     nav, ld = migas([("Inicio", "/"), ("Privacidad y cookies", None)])
-    c = (f'{nav}<h1>Privacidad y cookies</h1><div class="prose">'
-         f'<h2>Responsable</h2><p>{v["titular"]} (NIF {v["nif"]}). Contacto: {v["email"]}.</p>'
-         f'<h2>Qué datos tratamos</h2><p>{NOMBRE} no tiene formularios ni cuentas de usuario y no pide datos personales. '
-         f'Tus respuestas al cuestionario se procesan solo en tu navegador y no se envían a ningún servidor.</p>'
-         f'<h2>Almacenamiento en tu navegador</h2><p>Guardamos en el almacenamiento local de tu navegador (localStorage) tus perfumes '
-         f'favoritos y si prefieres el modo claro u oscuro. Es información técnica necesaria para esas funciones, no sale de tu '
-         f'dispositivo y puedes borrarla desde los ajustes del navegador. No usamos cookies propias de análisis ni de publicidad.</p>'
-         f'<h2>Servicios de terceros</h2><ul><li><b>GitHub Pages</b> (GitHub, Inc.) aloja la web y puede registrar tu dirección IP '
-         f'por motivos técnicos y de seguridad.</li><li><b>Google Fonts</b> sirve las tipografías; tu navegador se conecta a servidores '
-         f'de Google, que reciben tu dirección IP.</li><li><b>Tiendas y redes de afiliados</b>: al pulsar un enlace de compra sales de '
-         f'esta web. La tienda y, en su caso, la red de afiliados (por ejemplo CJ, Awin o Amazon) pueden usar cookies para atribuir la '
-         f'compra, según sus propias políticas de privacidad.</li></ul>'
-         f'<h2>Tus derechos</h2><p>Puedes ejercer tus derechos de acceso, rectificación, supresión, oposición, limitación y portabilidad '
-         f'escribiendo a {v["email"]}, y reclamar ante la Agencia Española de Protección de Datos (aepd.es).</p></div>')
+    fecha = e(SITIO_DATOS.get("actualizado") or datetime.date.today().isoformat())
+    c = (f'{nav}<h1>Privacidad y cookies</h1><div class="prose"><p class="n">Última actualización: {fecha}</p>'
+         f'<h2>1. Responsable del tratamiento</h2><p>{v["titular"]}, con NIF {v["nif"]} y domicilio en {v["domicilio"]}. '
+         f'Contacto: {v["email"]}.</p>'
+         f'<h2>2. Qué datos tratamos y para qué</h2><p>{NOMBRE} no tiene formularios, cuentas de usuario, newsletter ni herramientas '
+         f'de analítica, y no te pide datos personales. Tus respuestas al cuestionario se procesan solo en tu navegador y no se envían '
+         f'a ningún servidor.</p><ul>'
+         f'<li><b>Datos técnicos de conexión</b> (dirección IP, navegador, página solicitada): los registra automáticamente el servicio '
+         f'de alojamiento para servir la web y protegerla frente a abusos. Base legal: interés legítimo en el funcionamiento y la '
+         f'seguridad de la web (art. 6.1.f RGPD).</li>'
+         f'<li><b>Correos que nos envíes</b>: si escribes a {v["email"]}, usaremos tu dirección y tu mensaje solo para responderte. '
+         f'Base legal: tu consentimiento al escribirnos (art. 6.1.a RGPD). Los conservaremos el tiempo necesario para atender tu consulta.</li></ul>'
+         f'<h2>3. Destinatarios y transferencias internacionales</h2><p>La web está alojada en <b>GitHub Pages</b> (GitHub, Inc., '
+         f'Estados Unidos), que actúa como proveedor de alojamiento y conserva los registros técnicos según su propia política de '
+         f'privacidad. GitHub está adherida al Marco de Privacidad de Datos UE-EE. UU. (EU-US Data Privacy Framework), que la Comisión '
+         f'Europea considera una garantía adecuada para estas transferencias. No cedemos ni vendemos datos a terceros.</p>'
+         f'<h2>4. Cookies y almacenamiento local</h2><p><b>Esta web no instala cookies</b>, ni propias ni de terceros. Las tipografías '
+         f'se sirven desde nuestro propio dominio, sin conectarse a servicios externos.</p><p>Usamos el almacenamiento local de tu '
+         f'navegador (localStorage) solo para recordar los perfumes que guardas como favoritos y si prefieres el modo claro u oscuro. '
+         f'Esa información no sale de tu dispositivo, no sirve para identificarte y es necesaria para funciones que tú solicitas, por '
+         f'lo que no requiere consentimiento (art. 22.2 LSSI). Puedes borrarla desde los ajustes de tu navegador.</p>'
+         f'<h2>5. Enlaces a tiendas y programas de afiliados</h2><p>Al pulsar un enlace de compra sales de {NOMBRE}. A partir de ese '
+         f'momento, la tienda y, en su caso, la red de afiliados (por ejemplo CJ, Awin o Amazon) pueden instalar sus propias cookies '
+         f'en sus dominios para registrar que la visita llegó desde aquí y atribuir la compra. Ese tratamiento es responsabilidad de '
+         f'cada tienda o red y se rige por sus políticas de privacidad y cookies, que te recomendamos revisar. {NOMBRE} no recibe '
+         f'datos personales tuyos de esas compras, solo informes agregados de comisiones.</p>'
+         f'<h2>6. Tus derechos</h2><p>Puedes ejercer tus derechos de acceso, rectificación, supresión, oposición, limitación del '
+         f'tratamiento y portabilidad escribiendo a {v["email"]}. Si consideras que no hemos atendido correctamente tu solicitud, '
+         f'puedes presentar una reclamación ante la Agencia Española de Protección de Datos (www.aepd.es).</p>'
+         f'<h2>7. Cambios</h2><p>Si cambiamos la forma de tratar datos (por ejemplo, si añadimos analítica o un formulario), '
+         f'actualizaremos esta página y su fecha.</p></div>')
     escribir(raiz, "/privacidad/", pagina("/privacidad/", f"Privacidad y cookies | {NOMBRE}",
                                           f"Política de privacidad y cookies de {NOMBRE}.", c, [ld]), urls)
 
