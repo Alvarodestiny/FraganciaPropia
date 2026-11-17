@@ -1,0 +1,40 @@
+:root{--bg:#fff;--card:#fff;--soft:#F4F4F4;--ink:#111;--mute:#595959;--acc:#111;--accink:#fff;--line:#D9D9D9;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0B0B0B;--card:#151515;--soft:#1F1F1F;--ink:#F5F5F5;--mute:#A6A6A6;--acc:#F5F5F5;--accink:#0B0B0B;--line:#2E2E2E;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0B0B0B;--card:#151515;--soft:#1F1F1F;--ink:#F5F5F5;--mute:#A6A6A6;--acc:#F5F5F5;--accink:#0B0B0B;--line:#2E2E2E;color-scheme:dark}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 1.05rem/1.6 Figtree,system-ui,sans-serif}
+.wrap{max-width:1040px;margin:0 auto;padding:1.25rem 1rem 4rem}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:600;line-height:1.15;margin:0}
+h1{font-size:clamp(2rem,5.5vw,3.2rem);letter-spacing:-.01em;margin:.3rem 0 1rem;overflow-wrap:anywhere}
+h2{font-size:clamp(1.5rem,4vw,2rem);margin:3rem 0 .6rem}
+a{color:var(--acc);text-underline-offset:3px}
+.hd{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
+.logo{font:600 1.4rem Fraunces,Georgia,serif;color:var(--ink);text-decoration:none}
+.nav{display:flex;gap:1.1rem;flex-wrap:wrap}.nav a{color:var(--mute);font-weight:500}
+.crumbs{color:var(--mute);font-size:.9rem;margin:2rem 0 1rem}.crumbs a{color:var(--mute)}
+.kicker{color:var(--mute);text-transform:uppercase;letter-spacing:.08em;font-size:.85rem;margin:0}
+.lead{color:var(--mute);font-size:1.1rem;max-width:44rem;margin:.3rem 0 1.4rem}
+.hero-f{display:grid;grid-template-columns:1.4fr 1fr;gap:2rem;align-items:start}
+.hero-f p{max-width:40rem}
+.facts{margin:0;background:var(--soft);border-radius:18px;padding:1.2rem 1.4rem;display:grid;gap:.6rem}
+.facts div{display:flex;justify-content:space-between;gap:1rem;border-bottom:1px solid var(--line);padding-bottom:.5rem}
+.facts div:last-child{border:0;padding:0}.facts dt{color:var(--mute)}.facts dd{margin:0;font-weight:600;text-align:right}
+.acts{display:flex;gap:.8rem;flex-wrap:wrap;margin-top:1.2rem}
+.cta{display:inline-block;font:600 1.05rem Figtree,system-ui,sans-serif;background:var(--acc);color:var(--accink);border-radius:99px;padding:.85rem 1.8rem;text-decoration:none}
+.again{display:inline-block;font:600 1rem Figtree,system-ui,sans-serif;color:var(--acc);border:2px solid var(--acc);border-radius:99px;padding:.7rem 1.5rem;text-decoration:none}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem}
+.card{position:relative;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:1.2rem;display:flex;flex-direction:column;gap:.5rem}
+.card h3{font-size:1.2rem;padding-right:4.5rem}.card h3 a{color:var(--ink);text-decoration:none}.card h3 a:hover{text-decoration:underline}
+.card .brand{color:var(--mute);font-size:.92rem;margin:0}.card .d{margin:0;font-size:.95rem}
+.tg{position:absolute;top:1rem;right:1rem;font-size:.75rem;font-weight:600;border-radius:99px;padding:.1rem .6rem;background:var(--soft)}
+.why{margin:0;font-size:.9rem;background:var(--soft);border-radius:10px;padding:.45rem .7rem}
+.chips{display:flex;flex-wrap:wrap;gap:.4rem}.chips span{font-size:.82rem;border:1px solid var(--line);border-radius:99px;padding:.05rem .6rem}
+.lk{margin-top:auto;display:flex;gap:1.2rem;flex-wrap:wrap;font-weight:600}
+.cols{columns:3 220px;padding:0;list-style:none;margin:0}.cols li{break-inside:avoid;padding:.2rem 0}
+.n{color:var(--mute);font-size:.88rem}
+.table{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:560px}
+th,td{text-align:left;padding:.7rem .6rem;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:.9rem;color:var(--mute)}
+.cta-box{margin-top:4rem;background:var(--soft);border-radius:22px;padding:1.8rem}.cta-box h2{margin:0 0 .5rem}.cta-box p{color:var(--mute);max-width:40rem}
+.foot{color:var(--mute);font-size:.9rem;margin-top:3rem}.foot a{color:var(--mute)}
+:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+@media (max-width:760px){.hero-f{grid-template-columns:1fr}}
