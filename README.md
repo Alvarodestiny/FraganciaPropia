@@ -1,6 +1,6 @@
 # Fragancia Propia
 
-Web: https://fraganciapropia.es
+Web: https://fragranciapropia.es
 
 - `index.html`: el cuestionario (página principal).
 - `catalogo.json`: catálogo de perfumes. Se genera con `buiild_catalog` (script de Python) a partir del CSV de Fragrantica.

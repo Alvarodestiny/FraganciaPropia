@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://fraganciapropia.es/sitemap.xml
+Sitemap: https://fragranciapropia.es/sitemap.xml

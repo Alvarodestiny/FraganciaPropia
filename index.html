@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Fragancia Propia: encuentra tu perfume</title>
 <meta name="description" content="Cuestionario gratuito para encontrar tu perfume ideal según tu momento del día, tu estación y tus planes. Recomendaciones económicas, de diseñador y de nicho, y alternativas baratas a perfumes caros.">
-<link rel="canonical" href="https://fraganciapropia.es/">
+<link rel="canonical" href="https://fragranciapropia.es/">
 <meta property="og:type" content="website"><meta property="og:site_name" content="Fragancia Propia"><meta property="og:locale" content="es_ES">
-<meta property="og:title" content="Fragancia Propia: encuentra tu perfume"><meta property="og:description" content="Nueve preguntas y te recomendamos perfumes que encajan contigo, en todos los rangos de precio."><meta property="og:url" content="https://fraganciapropia.es/">
+<meta property="og:title" content="Fragancia Propia: encuentra tu perfume"><meta property="og:description" content="Nueve preguntas y te recomendamos perfumes que encajan contigo, en todos los rangos de precio."><meta property="og:url" content="https://fragranciapropia.es/">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
@@ -317,7 +317,7 @@ async function share(){
     txt(p.b,34,240,y+166,"#A6A6A6",B,500,730);
   });
   x.textAlign="center";
-  txt("Descubre el tuyo en fraganciapropia.es",38,W/2,1290,"#FFFFFF",B,500);
+  txt("Descubre el tuyo en fragranciapropia.es",38,W/2,1290,"#FFFFFF",B,500);
   shareCanvas=c;
   const url=c.toDataURL("image/png");
   $("#share").innerHTML=`<div class="sh" role="dialog" aria-label="Tarjeta para compartir"><img src="${url}" alt="Tarjeta con tu perfil olfativo y tus perfumes recomendados"><div class="acts"><a class="again" href="${url}" download="mi-perfil-fragancia-propia.png">Descargar</a>${navigator.canShare?'<button class="again" id="sh-send">Compartir</button>':""}<button class="again" id="sh-x">Cerrar</button></div><p class="small">Si no se descarga, mantén pulsada la imagen (móvil) o haz clic derecho y «Guardar imagen».</p></div>`;

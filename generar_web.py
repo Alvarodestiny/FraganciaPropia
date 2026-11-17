@@ -19,7 +19,7 @@ import argparse, datetime, html, json, os, re, shutil, unicodedata
 from urllib.parse import quote
 from collections import defaultdict
 
-SITIO = "https://fraganciapropia.es"
+SITIO = "https://fragranciapropia.es"
 NOMBRE = "Fragancia Propia"
 # Plantilla de afiliado: {URL} se sustituye por el enlace de Notino. Vacío = enlace normal.
 AFILIADO = ""
