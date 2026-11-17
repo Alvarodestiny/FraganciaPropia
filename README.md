@@ -12,15 +12,23 @@ Web: https://fraganciapropia.es
   - `sitemap.xml` y `robots.txt`
 - `plantillas/estilo.css`: estilos de las páginas generadas (se copia a `estilo.css`).
 
-## Regenerar las páginas
+## Afiliados y datos legales
 
-Cada vez que cambie `catalogo.json`:
+- `afiliados.json`: tiendas que salen en los botones de compra y tus códigos de afiliado.
+  - Notino (red CJ): en `afiliado` pon `https://www.anrdoezrs.net/links/TU_ID_DE_WEB/type/dlg/{URL_RAW}`. Usa el formato exacto que te dé CJ.
+  - Amazon: pon `"mostrar": true` y tu ID en `tag` (por ejemplo `tunombre-21`).
+  - Primor (Awin): pon `"mostrar": true` y en `afiliado` el enlace profundo de Awin con `{URL}`.
+- `sitio.json`: titular, NIF, domicilio y email para el aviso legal (lo exige la LSSI y lo revisan las redes de afiliados).
+
+Puedes editar estos archivos desde la web de GitHub (icono del lápiz).
+
+## Publicación automática
+
+`.github/workflows/web.yml` ejecuta `generar_web.py` y publica la web en cada cambio de `main`.
+Requiere **Settings → Pages → Source: GitHub Actions**.
+
+Para probarlo en tu ordenador:
 
     python generar_web.py
 
-Cuando te aprueben en un programa de afiliados, regenera con tu plantilla de enlace
-(`{URL}` se sustituye por el enlace de Notino) y pon la misma plantilla en `AFF` dentro de `index.html`:
-
-    python generar_web.py --afiliado "https://TU-ENLACE-DE-RED/?url={URL}"
-
-No edites a mano las carpetas generadas: se borran y se vuelven a crear en cada ejecución.
+No edites a mano las carpetas generadas ni `tiendas.js`: se vuelven a crear en cada ejecución.

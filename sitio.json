@@ -1,0 +1,7 @@
+{
+  "_ayuda": "Datos del titular de la web para el aviso legal (obligatorio en España por la LSSI y lo piden las redes de afiliados). Si los dejas vacíos, las páginas legales saldrán con el texto [pendiente].",
+  "titular": "",
+  "nif": "",
+  "domicilio": "",
+  "email": ""
+}

@@ -38,3 +38,4 @@ th,td{text-align:left;padding:.7rem .6rem;border-bottom:1px solid var(--line);ve
 .foot{color:var(--mute);font-size:.9rem;margin-top:3rem}.foot a{color:var(--mute)}
 :focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 @media (max-width:760px){.hero-f{grid-template-columns:1fr}}
+.prose{max-width:46rem}.prose h2{font-size:1.4rem;margin:2rem 0 .4rem}.prose ul{padding-left:1.2rem}

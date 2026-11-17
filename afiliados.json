@@ -1,0 +1,35 @@
+{
+  "_ayuda": [
+    "Tiendas que aparecen en los botones de compra de la web.",
+    "mostrar: true/false para enseñar u ocultar la tienda.",
+    "buscar: enlace de búsqueda de la tienda; {Q} se sustituye por el nombre del perfume y la marca.",
+    "afiliado: plantilla de tu red de afiliados. {URL} = enlace de la tienda codificado, {URL_RAW} = sin codificar. Vacío = enlace normal sin comisión.",
+    "  CJ (Notino):  https://www.anrdoezrs.net/links/TU_ID_DE_WEB/type/dlg/{URL_RAW}",
+    "  Awin (Primor): https://www.awin1.com/cread.php?awinmid=ID_ANUNCIANTE&awinaffid=TU_ID&ued={URL}",
+    "tag: solo Amazon, tu ID de afiliado (por ejemplo tunombre-21).",
+    "Tras cambiar este archivo, la web se vuelve a generar sola (si la publicación es con GitHub Actions)."
+  ],
+  "tiendas": [
+    {
+      "id": "notino",
+      "nombre": "Notino",
+      "mostrar": true,
+      "buscar": "https://www.notino.es/search.asp?exps={Q}",
+      "afiliado": ""
+    },
+    {
+      "id": "amazon",
+      "nombre": "Amazon",
+      "mostrar": false,
+      "buscar": "https://www.amazon.es/s?k={Q}",
+      "tag": ""
+    },
+    {
+      "id": "primor",
+      "nombre": "Primor",
+      "mostrar": false,
+      "buscar": "https://www.primor.eu/es_es/catalogsearch/result/?q={Q}",
+      "afiliado": ""
+    }
+  ]
+}
