@@ -39,3 +39,5 @@ th,td{text-align:left;padding:.7rem .6rem;border-bottom:1px solid var(--line);ve
 :focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 @media (max-width:760px){.hero-f{grid-template-columns:1fr}}
 .prose{max-width:46rem}.prose h2{font-size:1.4rem;margin:2rem 0 .4rem}.prose ul{padding-left:1.2rem}
+.faq{max-width:46rem}.faq h3{font-size:1.15rem;margin:1.4rem 0 .3rem}.faq p{margin:0}
+.tips{max-width:46rem;padding-left:1.2rem}.tips li{margin:.3rem 0}

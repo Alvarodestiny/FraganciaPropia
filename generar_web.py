@@ -12,6 +12,7 @@ Crea (y regenera desde cero cada vez):
     perfume/<slug>/          ficha de cada perfume + similares + alternativas más baratas
     marca/<slug>/            todos los perfumes de una marca
     perfumes/<lista>/        listados: "perfumes dulces para mujer", "perfumes de invierno para hombre"...
+    regalar/<perfil>/        ideas de regalo: "perfumes para regalar a tu novio", "amigo invisible"...
     perfumes/  marcas/  alternativas-baratas/   páginas índice
     aviso-legal/  privacidad/   páginas legales
     estilo.css  tiendas.js  sitemap.xml  robots.txt
@@ -27,7 +28,7 @@ SITIO = "https://fraganciapropia.es"
 NOMBRE = "Fragancia Propia"
 TIENDAS = []  # se cargan de afiliados.json
 SITIO_DATOS = {}  # se cargan de sitio.json
-CARPETAS = ["perfume", "marca", "perfumes", "marcas", "alternativas-baratas", "aviso-legal", "privacidad"]
+CARPETAS = ["perfume", "marca", "perfumes", "regalar", "marcas", "alternativas-baratas", "aviso-legal", "privacidad"]
 
 L = {"fresco": "Fresco", "citrico": "Cítrico", "floral": "Floral", "dulce": "Dulce",
      "amaderado": "Amaderado", "especiado": "Especiado", "ambar": "Ambarado"}
@@ -189,12 +190,12 @@ def pagina(ruta, titulo, desc, cuerpo, ld=()):
 <link rel="stylesheet" href="/estilo.css">
 <script>try{{var t=localStorage.getItem("fp:theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}}catch(e){{}}</script>
 {lds}</head><body><div class="wrap">
-<header class="hd"><a class="logo" href="/">{NOMBRE}</a><nav class="nav"><a href="/perfumes/">Explorar</a><a href="/alternativas-baratas/">Alternativas baratas</a><a href="/marcas/">Marcas</a></nav></header>
+<header class="hd"><a class="logo" href="/">{NOMBRE}</a><nav class="nav"><a href="/regalar/">Regalos</a><a href="/perfumes/">Explorar</a><a href="/alternativas-baratas/">Alternativas baratas</a><a href="/marcas/">Marcas</a></nav></header>
 <main>{cuerpo}
 <aside class="cta-box"><h2>¿No sabes cuál elegir?</h2><p>Responde nueve preguntas sobre tu momento del día, tu estación y tus planes, y te recomendamos perfumes económicos, de diseñador y de nicho.</p><a class="cta" href="/">Hacer el cuestionario</a></aside>
 </main>
 <footer class="foot"><p>Datos orientativos basados en los votos de la comunidad de Fragrantica. Los rangos de precio son aproximados y la disponibilidad depende de cada tienda.{aviso}</p>
-<p><a href="/">Cuestionario</a> · <a href="/perfumes/">Explorar perfumes</a> · <a href="/alternativas-baratas/">Alternativas baratas</a> · <a href="/marcas/">Marcas</a> · <a href="/aviso-legal/">Aviso legal</a> · <a href="/privacidad/">Privacidad y cookies</a></p></footer>
+<p><a href="/">Cuestionario</a> · <a href="/regalar/">Perfumes para regalar</a> · <a href="/perfumes/">Explorar perfumes</a> · <a href="/alternativas-baratas/">Alternativas baratas</a> · <a href="/marcas/">Marcas</a> · <a href="/aviso-legal/">Aviso legal</a> · <a href="/privacidad/">Privacidad y cookies</a></p></footer>
 </div></body></html>
 """
 
@@ -213,12 +214,12 @@ def ficha(p, similares, alts, alts_d, marca_url):
     fam = [PL[k] for k in p["k"]]
     hay_alts = bool(alts and alts[0][0] >= .6 or alts_d)
     if hay_alts:
-        titulo = f"{nombre} de {marca}: alternativas más baratas y notas"
-        desc = (f"¿Buscas algo parecido a {nombre} de {marca} por menos dinero? Perfumes con un perfil olfativo similar "
-                f"({y(fam)}), sus notas y cuándo llevarlo.")
+        titulo = f"{nombre} de {marca}: alternativas baratas, dupes y a qué huele"
+        desc = (f"¿Buscas un dupe o algo que huela parecido a {nombre} de {marca} por menos dinero? Perfumes baratos con un "
+                f"perfil olfativo similar ({y(fam)}), sus notas y cuándo llevarlo.")
     else:
-        titulo = f"{nombre} de {marca}: notas, cuándo usarlo y similares"
-        desc = (f"{nombre} de {marca}: perfume {GEN[p['g']]} de aromas {y(fam)}. Notas, estación, momento del día, "
+        titulo = f"{nombre} de {marca}: a qué huele, notas y perfumes parecidos"
+        desc = (f"¿A qué huele {nombre} de {marca}? Perfume {GEN[p['g']]} de aromas {y(fam)}: notas, estación, momento del día, "
                 f"intensidad y perfumes parecidos.")
     tier, nota = TIER[p["t"]]
     nt = p["nt"]
@@ -244,11 +245,52 @@ def ficha(p, similares, alts, alts_d, marca_url):
                    f'estos perfumes de diseñador tienen un aire parecido.</p>' + rejilla(tarjeta_sim(p, s, q) for s, q in alts_d) + "</section>")
     if similares:
         cuerpo += (f'<section><h2>Perfumes parecidos a {e(nombre)}</h2>' + rejilla(tarjeta_sim(p, s, q) for s, q in similares) + "</section>")
+    faq = preguntas(p, similares, alts, alts_d, fam, est, mom)
+    cuerpo += (f'<section><h2>Preguntas frecuentes sobre {e(nombre)}</h2><div class="faq">'
+               + "".join(f"<h3>{e(q)}</h3><p>{a}</p>" for q, a in faq) + "</div></section>")
+    ld_faq = {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+        {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": re.sub(r"<[^>]+>", "", html.unescape(a))}}
+        for q, a in faq]}
     nav, ld = migas([("Inicio", "/"), ("Marcas", "/marcas/"), (marca, marca_url), (nombre, None)])
     h1 = f"Alternativas baratas a {e(nombre)}" if hay_alts else e(nombre)
     sub = f'<p class="kicker">{e(nombre)} · {e(marca)}</p>' if hay_alts else f'<p class="kicker">{e(marca)}</p>'
     top = (f'{nav}<article class="hero-f"><div>{sub}<h1>{h1}</h1>{intro}{acc}</div>{datos}</article>')
-    return titulo, desc, top + cuerpo, [ld]
+    return titulo, desc, top + cuerpo, [ld, ld_faq]
+
+
+def nombra(base, lista):
+    """«X de Marca (comparten a, b)» enlazado, para respuestas de las preguntas frecuentes."""
+    out = []
+    for _, q in lista:
+        com = [x for x in q["nt"] if x in base["ns"]][:2]
+        out.append(f'<a href="{q["url"]}">{e(q["n"])}</a> de {e(q["b"])}' + (f" (comparten {e(y(com))})" if com else ""))
+    return y(out)
+
+
+def preguntas(p, similares, alts, alts_d, fam, est, mom):
+    nombre, nt = e(p["n"]), p["nt"]
+    r = [(f"¿A qué huele {p['n']}?",
+          f"{nombre} es un perfume {GEN[p['g']]} de aromas {e(y(fam))}." +
+          (f" Sus notas principales son {e(y(nt[:8]))}." if nt else "") +
+          f" Tiene una presencia {INT.get(p['i'], 'equilibrada')}."),
+         (f"¿Cuándo usar {p['n']}?",
+          f"La comunidad lo asocia sobre todo a {e(est)} y a {e(mom)}. " +
+          {1: "Al ser suave, es fácil de llevar a diario y en sitios cerrados.",
+           2: "Su intensidad equilibrada lo hace versátil: sirve tanto para el día a día como para una cita.",
+           3: "Es intenso, así que con dos o tres pulverizaciones basta; luce más en exteriores o de noche."}
+          .get(p["i"], ""))]
+    if alts:
+        r.append((f"¿Hay algún dupe barato de {p['n']}?",
+                  f"No conocemos copias exactas, pero por perfil olfativo los perfumes económicos (normalmente por debajo de unos 60 €) "
+                  f"que más se le parecen son {nombra(p, alts[:3])}. Huelen en la misma dirección, aunque no son idénticos: "
+                  f"si puedes, pruébalos antes en tienda."))
+    if alts_d:
+        r.append((f"¿Qué perfume de diseñador se parece a {p['n']}?",
+                  f"Si prefieres algo de gama media, prueba {nombra(p, alts_d[:2])}."))
+    if similares:
+        r.append((f"¿Qué perfumes se parecen a {p['n']}?",
+                  f"En su mismo rango de precio, los más parecidos son {nombra(p, similares[:3])}."))
+    return r
 
 
 def listado(titulo_h1, intro, items, nav):
@@ -259,6 +301,185 @@ def listado(titulo_h1, intro, items, nav):
 
 def ranking(items, n):
     return sorted(items, key=lambda p: -p["pop"])[:n]
+
+
+# ---------------------------------------------------------------- regalos
+# Cada perfil: géneros (con peso), familias preferidas (peso), intensidad ideal, momento preferido y secciones por rango.
+PERFILES = [
+    {"sl": "novio", "a": "a tu novio", "g": {"m": 1, "u": .9}, "k": {"dulce": 1, "especiado": 1, "amaderado": .8, "ambar": .8, "fresco": .4},
+     "i": None, "h": "noche", "ev": "valentin",
+     "intro": "Para regalar a tu pareja funcionan muy bien los perfumes con algo de calidez: dulces, especiados o amaderados, "
+              "que se notan de cerca y apetecen en una cena o una cita.",
+     "tips": ["Fíjate en qué perfume usa ahora: si le gusta, uno parecido de otro rango es una apuesta segura.",
+              "Si es de los que se ponen perfume solo para salir, elige algo intenso y de noche; si lo usa a diario, mejor algo equilibrado.",
+              "Un frasco de 50 ml suele ser suficiente para probar si le encaja sin gastar de más."]},
+    {"sl": "novia", "a": "a tu novia", "g": {"f": 1, "u": .9}, "k": {"dulce": 1, "floral": 1, "ambar": .7, "citrico": .4, "fresco": .4},
+     "i": None, "h": "noche", "ev": "valentin",
+     "intro": "Los perfumes florales y dulces son los que más se regalan a una pareja, y por algo: son agradables, se notan "
+              "y gustan a casi todo el mundo. Si ya sabes qué estilo le va, los ambarados y especiados son un acierto más personal.",
+     "tips": ["Mira qué perfumes tiene en el tocador: te dicen si le van los dulces, los florales o los frescos.",
+              "Si dudas entre dos, elige el de presencia equilibrada: es más fácil de llevar a diario.",
+              "Un perfume nuevo de una marca que ya usa suele ser una apuesta más segura que cambiarle de estilo."]},
+    {"sl": "padre", "a": "a tu padre", "g": {"m": 1, "u": .8}, "k": {"amaderado": 1, "fresco": .9, "citrico": .9, "especiado": .6},
+     "i": 2, "h": "mañana", "ev": "padre",
+     "intro": "Para un padre suelen acertar los perfumes clásicos y fáciles de llevar: amaderados, cítricos y frescos con "
+              "presencia equilibrada, que valen para el trabajo, el fin de semana y cualquier época.",
+     "tips": ["Si lleva años con el mismo perfume, regálale algo parecido en lugar de algo radicalmente distinto.",
+              "Para uso diario, mejor un perfume de presencia equilibrada que uno muy intenso.",
+              "Las versiones «eau de toilette» suelen ser más frescas y ligeras que las «eau de parfum»."]},
+    {"sl": "madre", "a": "a tu madre", "g": {"f": 1, "u": .8}, "k": {"floral": 1, "ambar": .8, "amaderado": .6, "citrico": .5, "dulce": .4},
+     "i": 2, "h": None, "ev": "madre",
+     "intro": "A una madre le suelen encantar los perfumes florales y elegantes, con un toque ambarado o amaderado, "
+              "y con una presencia equilibrada que se pueda llevar a diario.",
+     "tips": ["Pregunta con disimulo (o mira el baño) qué perfume usa: es la mejor pista.",
+              "Si le gustan los perfumes de toda la vida, los florales con fondo amaderado rara vez fallan.",
+              "Evita los muy intensos si no sabes sus gustos: cansan antes."]},
+    {"sl": "amigo-invisible", "a": "en el amigo invisible", "g": {"m": 1, "f": 1, "u": 1}, "k": {}, "i": 2, "h": None,
+     "ev": None, "solo": "e",
+     "intro": "En el amigo invisible el presupuesto es limitado y a menudo no conoces bien a la persona. Por eso aquí solo hay "
+              "perfumes económicos (normalmente por debajo de unos 60 €), muy populares y versátiles, que se pueden llevar casi en cualquier época.",
+     "tips": ["Si no conoces a la persona, elige un perfume unisex y de presencia equilibrada.",
+              "Pide tique regalo: los perfumes precintados suelen poder cambiarse.",
+              "Con poco presupuesto, un frasco pequeño de un perfume bueno luce más que uno grande de uno flojo."]},
+    {"sl": "chico-joven", "a": "a un chico joven", "g": {"m": 1, "u": .85}, "k": {"fresco": 1, "dulce": 1, "citrico": .7, "especiado": .4},
+     "i": None, "h": None, "ev": None,
+     "intro": "Entre los chicos jóvenes triunfan dos estilos: los frescos y limpios para el día a día y los dulces y "
+              "llamativos para salir de fiesta. Aquí tienes los más populares de cada rango de precio.",
+     "tips": ["Para clase o el trabajo, mejor algo fresco; para salir, uno dulce o especiado.",
+              "Los perfumes de diseñador más conocidos son un acierto fácil en estas edades.",
+              "Si el presupuesto es ajustado, las alternativas económicas tienen perfiles muy parecidos."]},
+    {"sl": "chica-joven", "a": "a una chica joven", "g": {"f": 1, "u": .85}, "k": {"dulce": 1, "floral": .8, "fresco": .7, "citrico": .6},
+     "i": None, "h": None, "ev": None,
+     "intro": "A las chicas jóvenes suelen gustarles los perfumes dulces y afrutados, y los florales ligeros. "
+              "Estos son los más populares de cada rango de precio.",
+     "tips": ["Los dulces con vainilla o frutas son los favoritos; los florales ligeros, para quien prefiere algo más discreto.",
+              "Para el día a día, mejor presencia suave o equilibrada.",
+              "Si no sabes cuál elegir, el cuestionario de la web te da opciones en dos minutos."]},
+    {"sl": "companero-de-trabajo", "a": "a un compañero de trabajo", "g": {"m": 1, "f": 1, "u": 1},
+     "k": {"fresco": 1, "citrico": 1, "amaderado": .8, "floral": .5}, "i": 1, "h": "mañana", "ev": None,
+     "intro": "Para un compañero o compañera de trabajo, mejor algo discreto: perfumes frescos, cítricos o amaderados "
+              "de presencia suave, pensados para el día y para sitios cerrados.",
+     "tips": ["En la oficina, cuanto más suave, mejor: nadie quiere un perfume que llene la sala.",
+              "Los cítricos y frescos gustan a casi todo el mundo y no molestan.",
+              "Si es un regalo de grupo, uno de diseñador conocido es una apuesta segura."]},
+    {"sl": "aciertan-siempre", "a": "que siempre aciertan", "sin_a": True, "g": {"m": 1, "f": 1, "u": 1}, "k": {},
+     "i": 2, "h": None, "ev": None,
+     "intro": "Si no sabes nada de los gustos de la persona, estos perfumes, de los más populares, versátiles y de presencia "
+              "equilibrada, son lo más parecido a un acierto seguro. Fíjate en si son masculinos, femeninos o unisex.",
+     "tips": ["Muy popular, presencia equilibrada y válido para varias estaciones: esa es la fórmula del regalo seguro; si dudas del género, elige uno unisex.",
+              "Pide tique regalo por si acaso.",
+              "Si conoces algo de sus gustos, mejor una de las páginas más concretas de esta sección."]},
+]
+SECCIONES = [("d", "Para acertar seguro", "Perfumes de diseñador muy conocidos y valorados ({})."),
+             ("e", "Con presupuesto ajustado", "Opciones económicas bien valoradas ({})."),
+             ("n", "Para sorprender", "Perfumes de nicho, menos vistos y más especiales ({}).")]
+SEC_GEN = [("m", "Para él"), ("f", "Para ella"), ("u", "Para cualquiera (unisex)")]
+
+
+def evento(clave, hoy):
+    """Ocasión de regalo según la fecha de generación (la web se regenera cada mes)."""
+    m, d, a = hoy.month, hoy.day, hoy.year
+    if m == 12 or m == 11:
+        return f"Navidad {a}"
+    if m == 1 and d <= 6:
+        return f"Reyes {a}"
+    if clave == "valentin" and m in (1, 2) and not (m == 2 and d > 14):
+        return f"San Valentín {a}"
+    if clave == "padre" and (m == 2 and d > 14 or m == 3 and d <= 19):
+        return f"Día del Padre {a}"
+    if clave == "madre" and (m == 4 or m == 5 and d <= 10):
+        return f"Día de la Madre {a}"
+    return ""
+
+
+def nota_regalo(perf, p):
+    fam = [PL[k] for k in p["k"] if k in perf["k"]][:2] or [PL[k] for k in p["k"][:2]]
+    est = "todo el año" if len(p["s"]) >= 2 and set(p["s"]) & {"primavera", "verano"} and set(p["s"]) & {"otoño", "invierno"} \
+        else y(p["s"]) or "cualquier época"
+    return f'<p class="why">{e(y(fam).capitalize())} · {e(est)} · presencia {INT.get(p["i"], "equilibrada")}</p>'
+
+
+def puntua(perf, p):
+    g = perf["g"].get(p["g"], 0)
+    if not g:
+        return 0
+    fam = sum(w * perf["k"].get(k, 0) for k, w in p["fw"].items()) / 2.2 if perf["k"] else .5
+    inten = 1 if perf["i"] is None else (1, .8, .55)[abs(p["i"] - perf["i"])]
+    mom = 1.1 if perf["h"] and perf["h"] in p["h"] else 1
+    vers = 1.08 if len(p["s"]) >= 2 else 1
+    return g * (.2 + p["pop"]) * (.6 + fam) * inten * mom * vers
+
+
+def regalos(raiz, P, urls):
+    hoy = datetime.date.today()
+    filas = []
+    for perf in PERFILES:
+        ev = evento(perf["ev"], hoy)
+        nombre = f"Perfumes para regalar {perf['a']}"
+        ruta = f"/regalar/{perf['sl']}/"
+        usados, secciones, todos = set(), [], []
+        if perf.get("solo"):
+            for gk, tit in SEC_GEN:
+                pool = [p for p in P if p["t"] == perf["solo"] and p["g"] == gk]
+                it = sorted(pool, key=lambda p: -puntua(perf, p))[:6]
+                secciones.append((tit, "", it))
+        else:
+            for t, tit, sub in SECCIONES:
+                pool = [p for p in P if p["t"] == t and puntua(perf, p) > 0]
+                it = sorted(pool, key=lambda p: -puntua(perf, p))[:6 if t != "n" else 4]
+                secciones.append((tit, sub.format(TIER[t][1]), it))
+        for _, _, it in secciones:
+            todos += it
+        n = len(todos)
+        titulo = f"{nombre}: {n} ideas" + ("" if perf.get("sin_a") else " que aciertan") + (f" ({ev})" if ev else "")
+        desc = (f"{n} perfumes para regalar {perf['a']}" if not perf.get("sin_a") else f"{n} perfumes {perf['a']}") + \
+               (f" en {ev}" if ev else "") + ": opciones de diseñador, económicas y de nicho, con por qué encajan y dónde comprarlos."
+        nav, ld0 = migas([("Inicio", "/"), ("Regalos", "/regalar/"), (nombre, None)])
+        cuerpo = (f'{nav}<p class="kicker">{e(ev) if ev else "Ideas de regalo"}</p><h1>{e(nombre)}</h1>'
+                  f'<p class="lead">{e(perf["intro"])}</p>')
+        for tit, sub, it in secciones:
+            if not it:
+                continue
+            cuerpo += (f'<section><h2>{e(tit)}</h2>' + (f'<p class="lead">{e(sub)}</p>' if sub else "")
+                       + rejilla(tarjeta(p, nota_regalo(perf, p)) for p in it) + "</section>")
+        cuerpo += ('<section><h2>Consejos para acertar</h2><ul class="tips">' + "".join(f"<li>{e(t)}</li>" for t in perf["tips"])
+                   + '</ul><p>¿Sigues sin decidirte? Responde al <a href="/">cuestionario</a> pensando en la persona a la que se lo vas a '
+                   'regalar y te recomendaremos perfumes según su momento del día, su estación y sus planes.</p></section>')
+        otros = [x for x in PERFILES if x is not perf]
+        cuerpo += ('<section><h2>Más ideas de regalo</h2><ul class="cols">' + "".join(
+            f'<li><a href="/regalar/{x["sl"]}/">Perfumes para regalar {e(x["a"])}</a></li>' for x in otros) + "</ul></section>")
+        ld = {"@context": "https://schema.org", "@type": "ItemList", "itemListElement": [
+            {"@type": "ListItem", "position": i + 1, "url": SITIO + p["url"], "name": f'{p["n"]} de {p["b"]}'} for i, p in enumerate(todos)]}
+        escribir(raiz, ruta, pagina(ruta, titulo, desc, cuerpo, [ld0, ld]), urls)
+        filas.append((perf, nombre, ruta))
+
+    ev = evento(None, hoy)
+    nav, ld0 = migas([("Inicio", "/"), ("Regalos", None)])
+    faq = [("¿Qué perfume regalar si no sé qué le gusta?",
+            "Lo más seguro es un perfume unisex, muy popular, de presencia equilibrada y que valga para varias estaciones. "
+            "Tienes una selección en <a href=\"/regalar/aciertan-siempre/\">perfumes que siempre aciertan</a>."),
+           ("¿Cuánto gastar en un perfume de regalo?",
+            "Hay perfumes económicos muy bien valorados por debajo de unos 60 €; los de diseñador suelen estar entre 70 y 150 € "
+            "y los de nicho, desde unos 150 €. Un frasco de 50 ml es una buena medida para regalar."),
+           ("¿Se puede cambiar un perfume regalado?",
+            "Depende de la tienda, pero normalmente sí mientras siga precintado. Pide tique regalo y no abras el celofán."),
+           ("¿Eau de parfum o eau de toilette?",
+            "La eau de parfum tiene más concentración y dura más; la eau de toilette es más ligera y fresca. Para el día a día o "
+            "para alguien que no suele usar perfume, la eau de toilette es una apuesta más segura.")]
+    ld_faq = {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+        {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": re.sub(r"<[^>]+>", "", a)}} for q, a in faq]}
+    c = (f'{nav}<p class="kicker">{e(ev) if ev else "Ideas de regalo"}</p><h1>Perfumes para regalar</h1>'
+         f'<p class="lead">Ideas de perfume según a quién se lo regalas, con opciones de diseñador, económicas y de nicho. '
+         f'Cada selección mezcla popularidad, versatilidad y el estilo que suele gustar a esa persona.</p>'
+         '<div class="grid">' + "".join(
+             f'<article class="card"><h3><a href="{r}">{e(n)}</a></h3><p class="d">{e(perf["intro"].split(". ")[0].rstrip("."))}.</p>'
+             f'<div class="lk"><a href="{r}">Ver ideas</a></div></article>' for perf, n, r in filas) + "</div>"
+         '<section><h2>Preguntas frecuentes</h2><div class="faq">' + "".join(f"<h3>{e(q)}</h3><p>{a}</p>" for q, a in faq) +
+         "</div></section>")
+    escribir(raiz, "/regalar/", pagina("/regalar/", "Perfumes para regalar: ideas que aciertan" + (f" ({ev})" if ev else ""),
+                                       "Ideas de perfume para regalar a tu pareja, tu padre, tu madre, en el amigo invisible o a alguien "
+                                       "cuyos gustos no conoces, con opciones para todos los presupuestos.", c, [ld0, ld_faq]), urls)
+    return filas
 
 
 def leer_json(ruta, defecto):
@@ -441,8 +662,13 @@ def main():
               f"Perfumes {PL[k]} baratos y bien valorados, normalmente por debajo de unos 60 €.",
               f"Los perfumes {PL[k]} {e(DESC_FAM[k])}. Estos son los más populares por debajo de unos 60 €.", it, "Baratos por familia")
 
+    # Regalos
+    regalo = regalos(raiz, P, urls)
+
     # Índices
     grupos = defaultdict(list)
+    for _, n, r in regalo:
+        grupos["Para regalar"].append(f'<li><a href="{r}">{e(n)}</a></li>')
     for g, h1, ruta in listas:
         grupos[g].append(f'<li><a href="{ruta}">{e(h1)}</a></li>')
     nav, ld0 = migas([("Inicio", "/"), ("Explorar", None)])
@@ -477,8 +703,8 @@ def main():
                  f'<td><a href="{q["url"]}">{e(q["n"])}</a><br><span class="n">{e(q["b"])}</span></td>'
                  f'<td>{grado(s)}' + (f' · {e(y([x for x in q["nt"] if x in p["ns"]][:3]))}' if p["ns"] & q["ns"] else "") + '</td></tr>'
                  for p, (s, q) in filas) + "</tbody></table></div>")
-    escribir(raiz, "/alternativas-baratas/", pagina("/alternativas-baratas/", "Alternativas baratas a perfumes caros: las mejores",
-                                                    "Alternativas económicas a perfumes de diseñador y de nicho populares, con perfil olfativo parecido y notas en común.",
+    escribir(raiz, "/alternativas-baratas/", pagina("/alternativas-baratas/", "Alternativas baratas y dupes de perfumes caros",
+                                                    "Dupes y alternativas económicas a perfumes de diseñador y de nicho populares, con perfil olfativo parecido y notas en común.",
                                                     c, [ld0]), urls)
 
     legales(raiz, urls)
@@ -494,7 +720,7 @@ def main():
     with open(os.path.join(raiz, "robots.txt"), "w", encoding="utf-8") as f:
         f.write(f"User-agent: *\nAllow: /\n\nSitemap: {SITIO}/sitemap.xml\n")
     print(f"Listo: {len(urls)} páginas ({len(P)} fichas, {len(con_alts)} con alternativas baratas, "
-          f"{len(marcas)} marcas, {len(listas)} listados).")
+          f"{len(marcas)} marcas, {len(listas)} listados, {len(regalo)} páginas de regalo).")
 
 
 if __name__ == "__main__":
