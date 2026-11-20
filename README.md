@@ -19,6 +19,7 @@ Web: https://fraganciapropia.es
   - Amazon: pon `"mostrar": true` y tu ID en `tag` (por ejemplo `tunombre-21`).
   - Primor (Awin): pon `"mostrar": true` y en `afiliado` el enlace profundo de Awin con `{URL}`.
 - `sitio.json`: titular, NIF, domicilio y email para el aviso legal (lo exige la LSSI y lo revisan las redes de afiliados).
+- `sitio.json` → `goatcounter`: código de tu cuenta de [GoatCounter](https://www.goatcounter.com) (estadísticas de visitas sin cookies). Cuenta visitas por página, procedencia y clics en los botones de tienda (eventos `compra-<tienda>`). Si lo dejas vacío no se mide nada y la política de privacidad deja de mencionarlo.
 
 Puedes editar estos archivos desde la web de GitHub (icono del lápiz).
 

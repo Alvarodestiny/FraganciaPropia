@@ -7,11 +7,13 @@
     "domicilio: dirección postal o, como mínimo, localidad y provincia.",
     "email: un correo de contacto; puedes crear uno solo para la web.",
     "actualizado: fecha de la última revisión de la política de privacidad (AAAA-MM-DD). Cámbiala si cambias cómo tratas datos.",
-    "Si dejas un campo vacío, saldrá como [pendiente]."
+    "Si dejas un campo vacío, saldrá como [pendiente].",
+    "goatcounter: el código de tu cuenta de GoatCounter (estadísticas de visitas sin cookies). Si lo dejas vacío, no se mide nada y la política de privacidad no lo menciona."
   ],
   "titular": "Álvaro González Carril",
   "nif": "71715649Q",
   "domicilio": "León",
   "email": "fraganciapropia@gmail.com",
-  "actualizado": "2026-11-17"
+  "actualizado": "2026-11-20",
+  "goatcounter": "fraganciapropia"
 }

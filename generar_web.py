@@ -15,7 +15,7 @@ Crea (y regenera desde cero cada vez):
     regalar/<perfil>/        ideas de regalo: "perfumes para regalar a tu novio", "amigo invisible"...
     perfumes/  marcas/  alternativas-baratas/   páginas índice
     aviso-legal/  privacidad/   páginas legales
-    estilo.css  tiendas.js  sitemap.xml  robots.txt
+    estilo.css  tiendas.js  analitica.js  sitemap.xml  robots.txt
 
 Solo usa la librería estándar de Python. Con la publicación por GitHub Actions
 (.github/workflows/web.yml) se ejecuta sola en cada cambio de la rama main.
@@ -187,7 +187,7 @@ def pagina(ruta, titulo, desc, cuerpo, ld=()):
 <meta property="og:type" content="website"><meta property="og:site_name" content="{NOMBRE}"><meta property="og:locale" content="es_ES">
 <meta property="og:title" content="{e(titulo)}"><meta property="og:description" content="{e(desc)}"><meta property="og:url" content="{can}">
 <link rel="preload" href="/fuentes/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin><link rel="stylesheet" href="/fuentes/fuentes.css">
-<link rel="stylesheet" href="/estilo.css">
+<link rel="stylesheet" href="/estilo.css"><script src="/analitica.js" defer></script>
 <script>try{{var t=localStorage.getItem("fp:theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t);}}catch(e){{}}</script>
 {lds}</head><body><div class="wrap">
 <header class="hd"><a class="logo" href="/">{NOMBRE}</a><nav class="nav"><a href="/regalar/">Regalos</a><a href="/perfumes/">Explorar</a><a href="/alternativas-baratas/">Alternativas baratas</a><a href="/marcas/">Marcas</a></nav></header>
@@ -523,20 +523,31 @@ def legales(raiz, urls):
     c = (f'{nav}<h1>Privacidad y cookies</h1><div class="prose"><p class="n">Última actualización: {fecha}</p>'
          f'<h2>1. Responsable del tratamiento</h2><p>{v["titular"]}, con NIF {v["nif"]} y domicilio en {v["domicilio"]}. '
          f'Contacto: {v["email"]}.</p>'
-         f'<h2>2. Qué datos tratamos y para qué</h2><p>{NOMBRE} no tiene formularios, cuentas de usuario, newsletter ni herramientas '
-         f'de analítica, y no te pide datos personales. Tus respuestas al cuestionario se procesan solo en tu navegador y no se envían '
+         f'<h2>2. Qué datos tratamos y para qué</h2><p>{NOMBRE} no tiene formularios, cuentas de usuario ni newsletter, '
+         f'y no te pide datos personales. Tus respuestas al cuestionario se procesan solo en tu navegador y no se envían '
          f'a ningún servidor.</p><ul>'
          f'<li><b>Datos técnicos de conexión</b> (dirección IP, navegador, página solicitada): los registra automáticamente el servicio '
          f'de alojamiento para servir la web y protegerla frente a abusos. Base legal: interés legítimo en el funcionamiento y la '
          f'seguridad de la web (art. 6.1.f RGPD).</li>'
+         + (f'<li><b>Estadísticas de visitas</b>: usamos <b>GoatCounter</b> para saber cuántas personas visitan cada página, desde '
+            f'qué web o buscador llegan y en qué botones de tienda se hace clic. Registra la página visitada, la web de procedencia, '
+            f'el navegador y sistema operativo (sin la cadena completa), el ancho de pantalla, el idioma y el país aproximado. '
+            f'No usa cookies ni almacenamiento local y no guarda tu dirección IP: solo la mantiene en memoria, junto con el '
+            f'navegador, hasta 8 horas para no contar dos veces la misma visita, y después se descarta. No permite identificarte ni '
+            f'seguirte entre webs. Solo vemos cifras agregadas. Base legal: interés legítimo en conocer el uso de la web para mejorarla '
+            f'(art. 6.1.f RGPD). Puedes evitarlo con un bloqueador de contenido.</li>' if SITIO_DATOS.get("goatcounter") else "") +
          f'<li><b>Correos que nos envíes</b>: si escribes a {v["email"]}, usaremos tu dirección y tu mensaje solo para responderte. '
          f'Base legal: tu consentimiento al escribirnos (art. 6.1.a RGPD). Los conservaremos el tiempo necesario para atender tu consulta.</li></ul>'
          f'<h2>3. Destinatarios y transferencias internacionales</h2><p>La web está alojada en <b>GitHub Pages</b> (GitHub, Inc., '
          f'Estados Unidos), que actúa como proveedor de alojamiento y conserva los registros técnicos según su propia política de '
          f'privacidad. GitHub está adherida al Marco de Privacidad de Datos UE-EE. UU. (EU-US Data Privacy Framework), que la Comisión '
-         f'Europea considera una garantía adecuada para estas transferencias. No cedemos ni vendemos datos a terceros.</p>'
-         f'<h2>4. Cookies y almacenamiento local</h2><p><b>Esta web no instala cookies</b>, ni propias ni de terceros. Las tipografías '
-         f'se sirven desde nuestro propio dominio, sin conectarse a servicios externos.</p><p>Usamos el almacenamiento local de tu '
+         f'Europea considera una garantía adecuada para estas transferencias.'
+         + (' Las estadísticas de visitas las presta <b>GoatCounter</b>, servicio operado desde Irlanda, que guarda los datos '
+            'agregados en servidores de Hetzner en Finlandia y Alemania (Unión Europea); no hay transferencia fuera del EEE.' if SITIO_DATOS.get("goatcounter") else "") +
+         f' No cedemos ni vendemos datos a terceros.</p>'
+         f'<h2>4. Cookies y almacenamiento local</h2><p><b>Esta web no instala cookies</b>, ni propias ni de terceros' +
+         (', tampoco para las estadísticas de visitas' if SITIO_DATOS.get("goatcounter") else '') +
+         f'. Las tipografías se sirven desde nuestro propio dominio, sin conectarse a servicios externos.</p><p>Usamos el almacenamiento local de tu '
          f'navegador (localStorage) solo para recordar los perfumes que guardas como favoritos y si prefieres el modo claro u oscuro. '
          f'Esa información no sale de tu dispositivo, no sirve para identificarte y es necesaria para funciones que tú solicitas, por '
          f'lo que no requiere consentimiento (art. 22.2 LSSI). Puedes borrarla desde los ajustes de tu navegador.</p>'
@@ -548,7 +559,7 @@ def legales(raiz, urls):
          f'<h2>6. Tus derechos</h2><p>Puedes ejercer tus derechos de acceso, rectificación, supresión, oposición, limitación del '
          f'tratamiento y portabilidad escribiendo a {v["email"]}. Si consideras que no hemos atendido correctamente tu solicitud, '
          f'puedes presentar una reclamación ante la Agencia Española de Protección de Datos (www.aepd.es).</p>'
-         f'<h2>7. Cambios</h2><p>Si cambiamos la forma de tratar datos (por ejemplo, si añadimos analítica o un formulario), '
+         f'<h2>7. Cambios</h2><p>Si cambiamos la forma de tratar datos (por ejemplo, si añadimos un formulario o una nueva herramienta), '
          f'actualizaremos esta página y su fecha.</p></div>')
     escribir(raiz, "/privacidad/", pagina("/privacidad/", f"Privacidad y cookies | {NOMBRE}",
                                           f"Política de privacidad y cookies de {NOMBRE}.", c, [ld]), urls)
@@ -560,6 +571,23 @@ def tiendas_js(raiz):
         f.write("/* Generado por generar_web.py a partir de afiliados.json: no lo edites a mano. */\n"
                 f"window.FP_TIENDAS={json.dumps(cfg, ensure_ascii=False)};\n"
                 f"window.FP_AVISO={json.dumps(aviso_afiliados().strip(), ensure_ascii=False)};\n")
+
+
+def analitica_js(raiz):
+    """Estadísticas de visitas con GoatCounter (sin cookies). Se activa poniendo tu código en sitio.json → goatcounter."""
+    codigo = re.sub(r"[^a-z0-9-]", "", str(SITIO_DATOS.get("goatcounter") or "").lower())
+    js = "/* Generado por generar_web.py a partir de sitio.json (goatcounter): no lo edites a mano. */\n"
+    if codigo:
+        js += ("(function(){var s=document.createElement('script');s.async=true;s.src='https://gc.zgo.at/count.js';"
+               f"s.setAttribute('data-goatcounter','https://{codigo}.goatcounter.com/count');document.head.appendChild(s);"
+               # Cuenta los clics en los botones de compra (también los del cuestionario, que se crean después).
+               "document.addEventListener('click',function(ev){var a=ev.target.closest&&ev.target.closest('a[rel~=\"sponsored\"]');"
+               "if(!a||!window.goatcounter||!window.goatcounter.count)return;"
+               "var t=(a.textContent||'').replace(/^Ver (precio )?en /,'').trim().toLowerCase();"
+               "window.goatcounter.count({path:'compra-'+t,title:'Clic en '+t+' desde '+location.pathname,event:true});});})();\n")
+    with open(os.path.join(raiz, "analitica.js"), "w", encoding="utf-8") as f:
+        f.write(js)
+    return codigo
 
 
 def main():
@@ -709,6 +737,8 @@ def main():
 
     legales(raiz, urls)
     tiendas_js(raiz)
+    if not analitica_js(raiz):
+        print("AVISO: sin estadísticas de visitas. Pon tu código de GoatCounter en sitio.json (goatcounter).")
 
     # CSS, sitemap, robots
     shutil.copyfile(os.path.join(os.path.dirname(os.path.abspath(__file__)), "plantillas", "estilo.css"), os.path.join(raiz, "estilo.css"))
