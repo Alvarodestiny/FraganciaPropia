@@ -12,6 +12,7 @@ Crea (y regenera desde cero cada vez):
     perfume/<slug>/          ficha de cada perfume + similares + alternativas más baratas
     marca/<slug>/            todos los perfumes de una marca
     perfumes/<lista>/        listados: "perfumes dulces para mujer", "perfumes de invierno para hombre"...
+    notas/<nota>/[hombre|mujer|unisex|baratos]/   perfumes por nota: "perfumes con vainilla para hombre"
     regalar/<perfil>/        ideas de regalo: "perfumes para regalar a tu novio", "amigo invisible"...
     perfumes/  marcas/  alternativas-baratas/   páginas índice
     aviso-legal/  privacidad/   páginas legales
@@ -26,9 +27,10 @@ from collections import defaultdict
 
 SITIO = "https://fraganciapropia.es"
 NOMBRE = "Fragancia Propia"
+NOTA_URL = {}  # nota canónica → URL de su página (se rellena en main)
 TIENDAS = []  # se cargan de afiliados.json
 SITIO_DATOS = {}  # se cargan de sitio.json
-CARPETAS = ["perfume", "marca", "perfumes", "regalar", "marcas", "alternativas-baratas", "aviso-legal", "privacidad"]
+CARPETAS = ["perfume", "marca", "perfumes", "regalar", "notas", "marcas", "alternativas-baratas", "aviso-legal", "privacidad"]
 
 L = {"fresco": "Fresco", "citrico": "Cítrico", "floral": "Floral", "dulce": "Dulce",
      "amaderado": "Amaderado", "especiado": "Especiado", "ambar": "Ambarado"}
@@ -223,10 +225,12 @@ def ficha(p, similares, alts, alts_d, marca_url):
                 f"intensidad y perfumes parecidos.")
     tier, nota = TIER[p["t"]]
     nt = p["nt"]
+    enlazables = [c for c in p.get("cn", []) if c in NOTA_URL]
     est = y(p["s"]) or "cualquier época"
     mom = y([MOM[x] for x in p["h"]]) or "cualquier momento"
     intro = (f"<p><b>{e(nombre)}</b> es un perfume {GEN[p['g']]} de <a href=\"{marca_url}\">{e(marca)}</a> "
              f"de aromas {e(y(fam))}." + (f" Destacan notas de {e(y(nt))}." if nt else "") +
+             (f" Más perfumes con {y([f'<a href=\"{NOTA_URL[c]}\">{e(c)}</a>' for c in enlazables[:4]])}." if enlazables else "") +
              f" La comunidad lo asocia sobre todo a {e(est)} y a {e(mom)}, con una presencia {INT.get(p['i'], 'equilibrada')}."
              f" Por precio entra en el rango <b>{tier.lower()}</b> ({nota}).</p>")
     datos = (f'<dl class="facts"><div><dt>Familia</dt><dd>{e(y([L[k] for k in p["k"]]))}</dd></div>'
@@ -482,6 +486,230 @@ def regalos(raiz, P, urls):
     return filas
 
 
+# ---------------------------------------------------------------- notas
+# Nota canónica → variantes del catálogo (algunas vienen en inglés). Además, cualquier nota que empiece por el nombre
+# canónico ("rosa búlgara", "vainilla de Bourbon") cuenta como esa nota; gana el nombre canónico más largo.
+NOTAS_ALIAS = {
+    "vainilla": ["vanille", "madagascar vanilla", "vanilla absolute", "vanilla orchid", "vanila", "tahitian vanilla", "vanilla bean", "vanilla pod", "black vanilla husk"],
+    "sándalo": ["australian sandalwood"], "jazmín": ["jasmine sambac", "egyptian jasmine", "indian jasmine"],
+    "pachulí": ["indonesian patchouli leaf"], "ámbar": ["amberwood", "white amber", "black amber"], "rosa": ["may rose", "grasse rose", "rose water", "rose petals", "tincture of rose"],
+    "haba tonka": ["coumarin"], "cedro": ["virginia cedar", "atlas cedar", "madera de cedro", "white cedar extract"], "cuero": ["suede"],
+    "vetiver": ["haitian vetiver", "vetyver"], "mandarina": ["mandarin", "green mandarin", "italian mandarin", "clementine"], "azahar": ["african orange flower", "tunisian orange blossom"],
+    "iris": ["orris", "orris root"], "limón": ["amalfi lemon", "italian lemon"], "cardamomo": ["guatemalan cardamom"],
+    "nardo": ["indian tuberose"], "incienso": ["olibanum", "frankincense"], "musgo de roble": ["oak moss"],
+    "oud": ["agarwood (oud)", "laotian oud"], "ylang-ylang": ["ylang ylang"], "melocotón": ["white peach"],
+    "notas amaderadas": ["woodsy notes", "white woods"], "caramelo": ["toffee"],
+    "pimienta": ["pimienta negra", "pimienta de Sichuan", "white pepper"], "tabaco": ["tobacco leaf"], "miel": ["white honey"],
+    "manzana": ["green apple", "red apple", "granny smith apple"], "coco": ["coconut milk", "coconut water"], "notas verdes": ["green leaves"],
+    "cítricos": ["citruses"], "almendra": ["bitter almond", "almond milk"], "madera de cachemira": ["cashmeran"],
+    "notas marinas": ["watery notes", "water notes", "ozonic notes", "agua de mar"], "salvia": ["clary sage"],
+    "especias": ["spices", "spicy notes"], "chocolate": ["cacao", "dark chocolate", "cacao pod"], "mirra": ["myrhh"],
+    "leche": ["milk"], "higo": ["fig leaf"], "ambreta": ["ambrette (musk mallow)"], "azúcar": ["sugar", "brown sugar", "sugar cane"],
+    "albaricoque": ["apricot"], "té": ["tea", "green tea", "black tea"], "gálbano": ["galbanum"], "clavo": ["cloves"],
+    "notas afrutadas": ["fruity notes", "fruits"], "loto": ["lotus"], "frutos rojos": ["red berries", "red currant", "red fruits", "wild berries", "cranberry"],
+    "enebro": ["juniper berries"], "nata montada": ["whipped cream"], "mora": ["blackberry"],
+    "cereza": ["sour cherry", "black cherry"], "regaliz": ["licorice"], "notas florales": ["floral notes"],
+    "madreselva": ["honeysuckle"], "narciso": ["narcissus"], "notas atalcadas": ["powdery notes"],
+    "flor de tiaré": ["tiare flower"], "malvavisco": ["marshmallow"], "angélica": ["angelica"], "nenúfar": ["water lily"],
+    "civeta": ["civet"], "anís": ["star anise"], "ruibarbo": ["rhubarb"], "lila": ["lilac"], "palo de rosa": ["brazilian rosewood"],
+    "sal": ["salt", "sea salt"], "ciclamen": ["cyclamen"], "artemisa": ["artemisia", "wormwood"], "granada": ["pomegranate"],
+    "avellana": ["hazelnut"], "bálsamo de tolú": ["tolu balsam"], "papiro": ["papyrus"], "siempreviva": ["immortelle"],
+    "roble": ["oak"], "pistacho": ["pistachio"], "caléndula": ["marigold"], "notas solares": ["solar notes"],
+    "opopónaco": ["opoponax"], "guayaba": ["guava"], "nagarmotha": ["cypriol oil or nagarmotha"], "castóreo": ["castoreum"],
+    "jacinto": ["hyacinth", "hiacynth"], "abeto": ["fir", "balsam fir"], "algodón de azúcar": ["cotton candy"],
+    "frutos secos": ["dried fruits"], "estoraque": ["styrax"], "pino": ["pine tree", "pine tree needles"], "arroz": ["rice"],
+    "flor de cerezo": ["cherry blossom"], "castaña": ["chestnut"], "eucalipto": ["eucalyptus"], "tomillo": ["thyme"],
+    "manzanilla": ["chamomile"], "fresa": [], "mango": [], "frangipani": [], "maracuyá": [], "flores blancas": [], "melón": [],
+    "elemí": ["elemi resin"], "akigalawood": [], "sandía": [], "comino": [], "yuzu": [], "coñac": [], "davana": [], "kumquat": [],
+    "dátil": [], "mate": [], "whisky": [], "bambú": [], "hedione": [], "iso e super": [], "ámbar gris": [], "almizcle": [],
+    "pimienta rosa": [], "lavanda": [], "bergamota": [], "naranja": [], "pomelo": [], "canela": [], "grosella negra": [],
+    "azafrán": [], "jengibre": [], "pera": [], "violeta": [], "hoja de violeta": ["violet leaves"], "benjuí": [], "peonía": [], "frambuesa": [],
+    "neroli": [], "geranio": [], "heliotropo": [], "ambroxan": [], "aldehídos": [], "ciruela": [], "muguete": [], "gardenia": [],
+    "fresia": [], "nuez moscada": [], "menta": [], "piña": [], "café": [], "magnolia": [], "praliné": [], "ron": [], "litchi": [],
+    "clavel": [], "guayaco": [], "lirio": [], "lima": [], "osmanthus": [], "orquídea": [], "romero": [], "láudano": [],
+    "ciprés": [], "cilantro": [], "mimosa": [], "albahaca": [], "petitgrain": [], "abedul": [], "musgo": ["moss"],
+    "cidra": ["citron"], "cera de abejas": ["beeswax"], "nectarina": ["nectarine"], "hibisco": ["hibiscus"], "champán": ["champagne"], "palo santo": [], "bálsamo de Perú": ["peru balsam"], "guisante de olor": ["sweet pea"], "plátano": [], "membrillo": ["quince"], "heno": ["hay"],
+}
+NOTAS_DESC = {
+    "almizcle": "El almizcle es la nota de fondo más usada en perfumería: limpio, suave y algo «a piel», alarga la duración y redondea el resto de notas",
+    "vainilla": "La vainilla aporta dulzor cálido y cremoso; es la nota estrella de los perfumes gourmand y de los aromas de otoño e invierno",
+    "bergamota": "La bergamota es un cítrico italiano, fresco y algo amargo, que abre muchísimos perfumes y les da luminosidad en la salida",
+    "sándalo": "El sándalo es una madera cremosa, suave y lechosa, muy elegante, que funciona igual de bien en perfumes masculinos y femeninos",
+    "jazmín": "El jazmín es una de las flores blancas más intensas: dulce, sensual y algo animal, presente en muchos de los grandes perfumes femeninos",
+    "pachulí": "El pachulí es una hoja de aroma terroso, oscuro y algo dulce; da profundidad y carácter, y es clave en los perfumes chipre y orientales",
+    "ámbar": "El ámbar en perfumería es un acorde cálido y resinoso (vainilla, láudano, benjuí) que da perfumes envolventes y con mucha estela",
+    "rosa": "La rosa es la flor más clásica de la perfumería: puede ser fresca y verde, afrutada o profunda y aterciopelada según con qué se combine",
+    "lavanda": "La lavanda es aromática, limpia y relajante; es la base de muchos perfumes masculinos clásicos y de los fougère modernos",
+    "haba tonka": "El haba tonka huele a almendra, vainilla y heno; aporta un dulzor cálido y algo ahumado muy adictivo",
+    "cedro": "El cedro es una madera seca, limpia y algo a lápiz; da estructura y elegancia, sobre todo en perfumes masculinos y unisex",
+    "cuero": "El cuero aporta un aroma ahumado, animal y lujoso; va de lo suave tipo ante a lo oscuro y potente",
+    "vetiver": "El vetiver es una raíz de aroma terroso, verde y ahumado; elegante y seco, es típico de perfumes masculinos sofisticados",
+    "mandarina": "La mandarina es un cítrico dulce y jugoso, más suave que el limón, que da alegría y frescura a la salida",
+    "azahar": "El azahar es la flor del naranjo: blanca, luminosa y algo dulce, muy mediterránea y fácil de llevar",
+    "pimienta rosa": "La pimienta rosa es una especia chispeante y algo afrutada que da un toque moderno y fresco a la salida",
+    "iris": "El iris (u orris) es atalcado, terroso y muy elegante; es una de las materias primas más caras de la perfumería",
+    "limón": "El limón da una frescura ácida y chispeante; ideal para perfumes de verano y de día",
+    "cardamomo": "El cardamomo es una especia fresca y aromática, ligeramente alimonada, que aporta elegancia a perfumes cálidos",
+    "pomelo": "El pomelo es un cítrico amargo y jugoso, muy refrescante, típico de perfumes deportivos y de verano",
+    "canela": "La canela es cálida, dulce y especiada; evoca la Navidad y los postres, y brilla en perfumes de invierno",
+    "nardo": "El nardo es una flor blanca cremosa, embriagadora y potente, de las más sensuales de la perfumería",
+    "incienso": "El incienso aporta un aroma ahumado, resinoso y místico; da profundidad y un aire meditativo",
+    "musgo de roble": "El musgo de roble es terroso, húmedo y verde; es la base de los perfumes chipre clásicos",
+    "grosella negra": "La grosella negra (cassis) es afrutada, ácida y algo verde; da un toque jugoso y moderno",
+    "oud": "El oud (agarwood) es una madera resinosa, oscura y muy intensa, típica de la perfumería árabe; animal, ahumada y lujosa",
+    "azafrán": "El azafrán es una especia cálida, algo cuero y metálica, muy presente en la perfumería árabe y de nicho",
+    "ylang-ylang": "El ylang-ylang es una flor tropical dulce, cremosa y algo afrutada, sensual y solar",
+    "jengibre": "El jengibre es una especia fresca y picante que da energía y chispa a la salida del perfume",
+    "melocotón": "El melocotón es una fruta suave, jugosa y aterciopelada que da dulzor y redondez",
+    "pera": "La pera es una fruta fresca, jugosa y luminosa, muy usada en perfumes juveniles y dulces",
+    "violeta": "La violeta es una flor atalcada, dulce y algo retro, muy delicada",
+    "benjuí": "El benjuí es una resina balsámica con aroma a vainilla y caramelo, cálida y reconfortante",
+    "peonía": "La peonía es una flor fresca, rosada y luminosa, muy usada en perfumes femeninos modernos",
+    "frambuesa": "La frambuesa aporta un toque afrutado, dulce y algo ácido, divertido y juvenil",
+    "neroli": "El neroli es la esencia de la flor del naranjo: fresco, verde y luminoso, muy de verano",
+    "caramelo": "El caramelo es puro gourmand: dulce, tostado y envolvente",
+    "tabaco": "El tabaco en perfumería es dulce, seco y algo a miel; da calidez y un aire sofisticado",
+    "miel": "La miel es dulce, densa y algo animal; aporta calidez y sensualidad",
+    "café": "El café aporta un aroma tostado, amargo y adictivo, muy de perfumes de noche e invierno",
+    "coco": "El coco es cremoso, dulce y solar; evoca playa y verano",
+    "menta": "La menta da una frescura fría e intensa, muy de perfumes deportivos y de verano",
+    "notas marinas": "Las notas marinas evocan el mar, la brisa y la sal; son la base de los perfumes acuáticos y frescos",
+    "ambroxan": "El ambroxan es una molécula ambarada, salada y amaderada que da mucha estela; es la base de muchos éxitos masculinos actuales",
+    "praliné": "El praliné huele a almendra o avellana caramelizada; dulce, tostado y muy gourmand",
+    "ron": "El ron aporta un aroma alcohólico, dulce y especiado, cálido y elegante",
+    "chocolate": "El chocolate (o cacao) da un dulzor oscuro y amargo, muy gourmand y de invierno",
+    "té": "El té aporta frescura limpia, algo verde o ahumada según el tipo; da elegancia y serenidad",
+    "cereza": "La cereza es dulce, jugosa y algo almendrada; muy de perfumes gourmand y seductores",
+    "higo": "El higo es verde, lechoso y algo dulce; evoca el verano mediterráneo",
+    "naranja": "La naranja es un cítrico dulce y alegre que da luz y frescura a la salida",
+    "gardenia": "La gardenia es una flor blanca cremosa y opulenta, muy femenina",
+    "magnolia": "La magnolia es una flor fresca, limonada y cremosa, luminosa y elegante",
+    "almendra": "La almendra es dulce, cremosa y algo amarga, muy gourmand",
+    "salvia": "La salvia es aromática, herbal y algo amaderada; muy de perfumes masculinos frescos",
+}
+
+
+def nota_canonica(x, prefijos):
+    if x in NOTAS_ALIAS:
+        return x
+    for c, al in NOTAS_ALIAS.items():
+        if x in al:
+            return c
+    for c in prefijos:  # ordenados de más largo a más corto
+        if x.startswith(c + " "):
+            return c
+    return None
+
+
+def preparar_notas(P, minimo=15):
+    prefijos = sorted(NOTAS_ALIAS, key=len, reverse=True)
+    cuenta = defaultdict(list)
+    for p in P:
+        p["cn"] = []
+        for x in p["nt"]:
+            c = nota_canonica(x, prefijos)
+            if c and c not in p["cn"]:
+                p["cn"].append(c)
+        for c in p["cn"]:
+            cuenta[c].append(p)
+    return {c: v for c, v in cuenta.items() if len(v) >= minimo}
+
+
+def notas_pags(raiz, NT, urls):
+    nurl = {c: "/notas/" + slug(c) + "/" for c in NT}
+    hechas = []
+    for c, items in sorted(NT.items(), key=lambda x: -len(x[1])):
+        ruta = nurl[c]
+        n = len(items)
+        fams, ests, co, tiers = defaultdict(int), defaultdict(int), defaultdict(int), defaultdict(int)
+        for p in items:
+            for k in p["k"][:1]:
+                fams[k] += 1
+            for s_ in p["s"]:
+                ests[s_] += 1
+            for o in p["cn"]:
+                if o != c and o in NT:
+                    co[o] += 1
+            tiers[p["t"]] += 1
+        top_f = [PL[k] for k, _ in sorted(fams.items(), key=lambda x: -x[1])[:2]]
+        top_s = [k for k, _ in sorted(ests.items(), key=lambda x: -x[1])[:2]]
+        top_c = [k for k, _ in sorted(co.items(), key=lambda x: -x[1])[:8]]
+        desc_nota = NOTAS_DESC.get(c)
+        datos = (f"En nuestro catálogo hay {n} perfumes con {e(c)}: {tiers['e']} económicos, {tiers['d']} de diseñador y "
+                 f"{tiers['n']} de nicho. Suele aparecer en perfumes {e(y(top_f))}, sobre todo de {e(y(top_s))}, "
+                 f"y se combina a menudo con {y([f'<a href=\"{nurl[o]}\">{e(o)}</a>' for o in top_c[:4]])}.")
+        lead = (f"{e(desc_nota)}. " if desc_nota else "") + datos
+        subs = []
+        if n >= 30:
+            for gk, (gtxt, gs) in GLIST.items():
+                it = [p for p in items if p["g"] in gs]
+                if len(it) >= 8:
+                    subs.append((gk, f"Perfumes con {c} {gtxt}", ranking(it, 24), f"Los perfumes con {e(c)} {gtxt} más populares."))
+        eco = [p for p in items if p["t"] == "e"]
+        if len(eco) >= 6:
+            subs.append(("baratos", f"Perfumes con {c} baratos", ranking(eco, 24),
+                         f"Perfumes con {e(c)} por debajo de unos 60 €, ordenados por popularidad."))
+        chips = "".join(f'<a href="{ruta}{sk}/">{e(h1.replace(f"Perfumes con {c} ", "").capitalize())}</a>' for sk, h1, _, _ in subs)
+        top = ranking(items, 24)
+        mejor = {gk: ranking([p for p in items if p["g"] in gs], 1) for gk, (_, gs) in GLIST.items()}
+        faq = []
+        if eco:
+            faq.append((f"¿Qué perfume barato tiene {c}?",
+                        f"Entre los económicos (normalmente por debajo de unos 60 €), los más populares con {e(c)} son " +
+                        y([f'<a href="{p["url"]}">{e(p["n"])}</a> de {e(p["b"])}' for p in ranking(eco, 3)]) + "."))
+        if mejor["hombre"] and mejor["mujer"]:
+            ph, pm = mejor["hombre"][0], mejor["mujer"][0]
+            faq.append((f"¿Cuál es el perfume con {c} más popular?",
+                        f"Para hombre, <a href=\"{ph['url']}\">{e(ph['n'])}</a> de {e(ph['b'])}; para mujer, "
+                        f"<a href=\"{pm['url']}\">{e(pm['n'])}</a> de {e(pm['b'])}."))
+        faq.append((f"¿Cuándo llevar un perfume con {c}?",
+                    f"La comunidad asocia los perfumes con {e(c)} sobre todo a {e(y(top_s))}, aunque depende de con qué notas se combine."))
+        ld_faq = {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [
+            {"@type": "Question", "name": q, "acceptedAnswer": {"@type": "Answer", "text": re.sub(r"<[^>]+>", "", html.unescape(a))}}
+            for q, a in faq]}
+        h1 = f"Perfumes con {c}"
+        nav, ld0 = migas([("Inicio", "/"), ("Notas", "/notas/"), (h1, None)])
+        cuerpo, ld = listado(h1, lead, top, nav)
+        if chips:
+            cuerpo = cuerpo.replace('<div class="grid">', f'<nav class="subs" aria-label="Filtrar">{chips}</nav><div class="grid">', 1)
+        if top_c:
+            cuerpo += ('<section><h2>Notas que combinan con ' + e(c) + '</h2><ul class="cols">' +
+                       "".join(f'<li><a href="{nurl[o]}">Perfumes con {e(o)}</a></li>' for o in top_c) + "</ul></section>")
+        cuerpo += (f'<section><h2>Preguntas frecuentes</h2><div class="faq">' +
+                   "".join(f"<h3>{e(q)}</h3><p>{a}</p>" for q, a in faq) + "</div></section>")
+        escribir(raiz, ruta, pagina(ruta, f"Perfumes con {c}: los mejores para hombre y mujer",
+                                    f"Los {min(n, 24)} perfumes con {c} más populares, de económicos a nicho: notas, estación y "
+                                    f"alternativas baratas. Para hombre, mujer y unisex.", cuerpo, [ld0, ld, ld_faq]), urls)
+        for sk, h1s, it, intro in subs:
+            r2 = f"{ruta}{sk}/"
+            nav, ld0 = migas([("Inicio", "/"), ("Notas", "/notas/"), (h1, ruta), (h1s, None)])
+            otros = "".join(f'<a href="{ruta}{k}/">{e(h.replace(f"Perfumes con {c} ", "").capitalize())}</a>'
+                            for k, h, _, _ in subs if k != sk)
+            c2, ld = listado(h1s, intro + (f" {e(desc_nota)}." if desc_nota else ""), it, nav)
+            c2 = c2.replace('<div class="grid">', f'<nav class="subs" aria-label="Filtrar"><a href="{ruta}">Todos</a>{otros}</nav>'
+                                                  '<div class="grid">', 1)
+            escribir(raiz, r2, pagina(r2, f"{h1s}: los más populares", f"{h1s}: los más valorados por la comunidad, con notas, "
+                                      f"estación y precio orientativo.", c2, [ld0, ld]), urls)
+        hechas.append((c, n, ruta, 1 + len(subs)))
+
+    nav, ld0 = migas([("Inicio", "/"), ("Notas", None)])
+    pop = sorted(hechas, key=lambda x: -x[1])
+    letras = defaultdict(list)
+    for c, n, r, _ in sorted(hechas, key=lambda x: slug(x[0])):
+        letras[slug(c)[:1].upper()].append((c, n, r))
+    cuerpo = (f'{nav}<h1>Perfumes por nota</h1><p class="lead">Busca perfumes por su ingrediente: {len(hechas)} notas, de la vainilla '
+              f'al oud, con los perfumes más populares que las llevan y sus versiones baratas.</p>'
+              '<section><h2>Las notas más buscadas</h2><ul class="cols">' +
+              "".join(f'<li><a href="{r}">Perfumes con {e(c)}</a> <span class="n">{n}</span></li>' for c, n, r, _ in pop[:30]) +
+              "</ul></section>" + "".join(f'<section><h2>{l}</h2><ul class="cols">' + "".join(
+                  f'<li><a href="{r}">{e(c)}</a> <span class="n">{n}</span></li>' for c, n, r in v) + "</ul></section>"
+                                      for l, v in letras.items()))
+    escribir(raiz, "/notas/", pagina("/notas/", "Perfumes por nota: vainilla, oud, almizcle, rosa…",
+                                     "Encuentra perfumes por su nota olfativa: vainilla, oud, almizcle, rosa, lavanda, cuero y "
+                                     f"{len(hechas) - 6} más, con los más populares y alternativas baratas.", cuerpo, [ld0]), urls)
+    return nurl, hechas
+
+
 def leer_json(ruta, defecto):
     try:
         with open(ruta, encoding="utf-8") as f:
@@ -614,6 +842,9 @@ def main():
         marcas[p["b"]].append(p)
     murl = {m: "/marca/" + slug(m) + "/" for m in marcas}
 
+    NT = preparar_notas(P)
+    NOTA_URL.update({c: "/notas/" + slug(c) + "/" for c in NT})
+
     # Fichas
     con_alts = []
     for i, p in enumerate(P):
@@ -690,8 +921,9 @@ def main():
               f"Perfumes {PL[k]} baratos y bien valorados, normalmente por debajo de unos 60 €.",
               f"Los perfumes {PL[k]} {e(DESC_FAM[k])}. Estos son los más populares por debajo de unos 60 €.", it, "Baratos por familia")
 
-    # Regalos
+    # Regalos y notas
     regalo = regalos(raiz, P, urls)
+    _, notas_hechas = notas_pags(raiz, NT, urls)
 
     # Índices
     grupos = defaultdict(list)
@@ -705,7 +937,10 @@ def main():
          "".join(f'<section><h2>{g}</h2><ul class="cols">{"".join(v)}</ul></section>' for g, v in grupos.items()) +
          '<section><h2>Marcas más populares</h2><ul class="cols">' +
          "".join(f'<li><a href="{murl[m]}">{e(m)}</a></li>' for m in sorted(marcas, key=lambda m: -len(marcas[m]))[:30]) +
-         '</ul><p><a href="/marcas/">Ver todas las marcas</a></p></section>')
+         '</ul><p><a href="/marcas/">Ver todas las marcas</a></p></section>'
+         '<section><h2>Por nota</h2><ul class="cols">' +
+         "".join(f'<li><a href="{r}">Perfumes con {e(c)}</a></li>' for c, n, r, _ in sorted(notas_hechas, key=lambda x: -x[1])[:30]) +
+         '</ul><p><a href="/notas/">Ver todas las notas</a></p></section>')
     escribir(raiz, "/perfumes/", pagina("/perfumes/", "Explorar perfumes por familia, estación y precio",
                                         "Listados de perfumes para hombre, mujer y unisex por familia olfativa, estación, momento del día y rango de precio.",
                                         c, [ld0]), urls)
@@ -750,7 +985,7 @@ def main():
     with open(os.path.join(raiz, "robots.txt"), "w", encoding="utf-8") as f:
         f.write(f"User-agent: *\nAllow: /\n\nSitemap: {SITIO}/sitemap.xml\n")
     print(f"Listo: {len(urls)} páginas ({len(P)} fichas, {len(con_alts)} con alternativas baratas, "
-          f"{len(marcas)} marcas, {len(listas)} listados, {len(regalo)} páginas de regalo).")
+          f"{len(marcas)} marcas, {len(listas)} listados, {len(regalo)} páginas de regalo, {sum(x[3] for x in notas_hechas)} páginas de notas).")
 
 
 if __name__ == "__main__":

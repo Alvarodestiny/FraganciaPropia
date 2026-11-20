@@ -9,6 +9,8 @@ Web: https://fraganciapropia.es
   - `marca/<nombre>/` y `marcas/`: perfumes por marca
   - `perfumes/`: listados («perfumes dulces para mujer», «perfumes de invierno para hombre», «perfumes frescos baratos»…)
   - `alternativas-baratas/`: tabla de perfumes caros y su alternativa económica
+  - `notas/<nota>/` (y `/hombre/`, `/mujer/`, `/unisex/`, `/baratos/`): «perfumes con vainilla», «perfumes con oud para hombre»… Las variantes de cada nota (incluidas las que vienen en inglés) se agrupan en `NOTAS_ALIAS` y las descripciones están en `NOTAS_DESC`, dentro de `generar_web.py`
+  - `regalar/`: ideas de regalo por persona (novio, padre, amigo invisible…)
   - `sitemap.xml` y `robots.txt`
 - `plantillas/estilo.css`: estilos de las páginas generadas (se copia a `estilo.css`).
 
